@@ -1,22 +1,46 @@
-PROTOTYPE — Fiche de déclaration d'écart numérique (SEVAM)
-=============================================================
+PROTOTYPE — Fiche de déclaration d'écart numérique (SEVAM) — v4
+=================================================================
 
 Ce dossier contient un prototype Python (Streamlit) qui démontre une version
 numérique de la fiche de déclaration d'écart proposée au chapitre 5 du
-rapport PFA, avec pilotage Pareto des causes en temps réel.
+rapport PFA, avec pilotage Pareto des causes en temps réel, catalogue produit
+réel et accès différencié par rôle.
 
 Contenu :
-- app.py                                  → l'application
-- Dataset_Ecarts_Production_SEVAM.csv     → données de démonstration (159 OF)
-- logo_sevam.png                          → logo officiel SEVAM (identité visuelle de l'appli)
-- requirements.txt                        → dépendances Python
+- app.py                                  -> l'application
+- catalogue_sevam.py                      -> fours/lignes/départements/rôles + catalogue produit (246 réf.)
+- build_dataset_v3.py                     -> script qui régénère le CSV de démonstration à partir du catalogue
+- Dataset_Ecarts_Production_SEVAM.csv     -> données de démonstration (218 OF, catalogue réel)
+- logo_sevam.png                          -> logo officiel SEVAM
+- requirements.txt                        -> dépendances Python
 
-Structure des fours et lignes modélisée (v3) :
-- U1 : four de Roches Noires (le plus ancien)
-- U2, U3 : fours de Tit Mellil (anciens)
-- U4 : four de Tit Mellil (récent, en service depuis ~4 ans)
-- Chaque four compte 3 lignes nommées LxY (x = n° de ligne 1-3, Y = n° du four)
-  ex. U1 → L11/L21/L31, U4 → L14/L24/L34
+NOUVEAUTÉS v4 — données réelles de l'entreprise
+------------------------------------------------
+Le catalogue produit et la codification four/ligne ont été reconstruits à
+partir de 3 fichiers réels transmis par SEVAM (F.P.A.S POT DELICIA 37 + sa
+version corrigée, Planner Gobeleterie 2026) :
+- 246 références produit, dont 207 réelles (bouteilles, pots, bocaux, verres
+  à thé/café, articles décorés/personnalisés pour des marques identifiées
+  dans les fichiers : Shell, TotalEnergies, Carte Noire, Nescafé, Butagaz...).
+  39 références ont été ajoutées pour élargir le choix (identifiées
+  source="genere" dans catalogue_sevam.py).
+- Codification des lignes corrigée grâce au vrai journal de production ERP
+  (2308 lignes réelles, 2013-2024) : U2 -> L11/L12/L13, U3 -> L21/L22/L23.
+  U1 et U4 (absents de ce fichier) prolongent la même logique, à vérifier
+  auprès de SEVAM.
+- L'atelier Décor est modélisé comme un atelier transverse (pas de four
+  dédié), conformément à la confirmation de l'entreprise.
+- Départements : Gobeleterie (four U1), Verre creux (fours U2/U3/U4), Décor.
+
+NOUVEAUTÉS v4 — accès différencié par rôle (backend)
+------------------------------------------------------
+Un sélecteur de rôle en haut de la barre latérale simule 4 niveaux d'accès :
+- Opérateur           -> saisie restreinte à sa ligne + résumé personnel simplifié
+- Chef de service      -> pilotage de son four (toutes les lignes du four)
+- Chef de département  -> pilotage de son département, y compris impact économique
+- Directeur Général    -> accès complet à tous les départements + vue comparative
+Il s'agit d'une démonstration de principe (pas d'authentification réelle) —
+voir l'onglet Méthodologie de l'application pour le détail et les limites.
 
 INSTALLATION ET LANCEMENT (sur ton ordinateur)
 -----------------------------------------------
@@ -30,32 +54,29 @@ INSTALLATION ET LANCEMENT (sur ton ordinateur)
    (sinon, ouvrir l'adresse indiquée dans le terminal, en général
    http://localhost:8501).
 
+POUR RE-DÉPLOYER SUR STREAMLIT CLOUD (sevam-pfa.streamlit.app)
+-----------------------------------------------------------------
+Remplace TOUS les fichiers de ce dossier (y compris le nouveau
+catalogue_sevam.py et build_dataset_v3.py) dans ton dépôt GitHub
+"sevam-fiche-ecart" en utilisant "Add file -> Upload files", comme la
+dernière fois. Le redéploiement est automatique après le remplacement.
+
 UTILISATION EN SOUTENANCE
 --------------------------
-- Panneau de gauche : seuil d'alerte (%) et coût unitaire (MAD) sont
-  paramétrables et recalculent tout en direct.
-- Onglet "Saisie d'une déclaration" : remplir une fiche comme le ferait
-  un opérateur/planificateur, l'écart et son statut se calculent
-  automatiquement à l'enregistrement.
-- Onglet "Pilotage QCD & Pareto" : indicateurs structurés selon les
-  3 critères Qualité / Coût / Délai, Pareto des causes avec repère
-  des 80%, répartition par ligne/four. Tout se met à jour instantanément,
-  y compris avec les nouvelles déclarations saisies pendant la démo.
-- Onglet "Impact économique" : traduction financière des écarts et
-  simulation de gain interactive (curseur d'objectif de réduction).
-- Onglet "Méthodologie & note technique" : explique à un lecteur qui
-  découvre l'application (le jury) le contexte, l'architecture
-  technique, la cohérence avec le rapport, les limites assumées et
-  les pistes d'évolution — à lire ou montrer directement en soutenance.
-- Chaque écran comporte des petits blocs "ℹ️" dépliables qui expliquent
-  comment lire les graphiques et les indicateurs.
+- Choisir un rôle dans la barre latérale pour montrer au jury la vue
+  Opérateur (simple) puis la vue DG (complète) : cela illustre concrètement
+  la maîtrise du besoin métier (qui doit voir quoi).
+- Onglet "Saisie d'une déclaration" : le champ Référence article est un vrai
+  catalogue SEVAM (article + décor + marque si personnalisé).
+- Onglet "Pilotage QCD & Pareto" : Pareto des causes, répartition par ligne,
+  top articles en écart, part des OF passés par l'atelier Décor.
+- Onglet "Impact économique" : traduction financière + simulation de gain
+  (+ vue comparative inter-départements pour la DG uniquement).
+- Onglet "Méthodologie & note technique" : explique au jury la provenance
+  des données réelles, les limites assumées et les points à vérifier avec
+  SEVAM (codification U1/U4).
 
-Ce prototype a été testé et s'exécute sans erreur (démarrage serveur,
-soumission du formulaire, calcul et affichage des graphiques et des
-4 onglets vérifiés par capture d'écran).
-
-Argument pour le jury : ce prototype démontre concrètement la faisabilité
-technique de la piste d'amélioration proposée au chapitre 5 — remplacer
-la fiche papier par une saisie numérique alimentant automatiquement un
-pilotage par cause, en cohérence avec l'ERP JD Edwards et Qlik Sense déjà
-utilisés par SEVAM.
+Argument pour le jury : ce prototype ne se contente pas d'illustrer un
+concept — son catalogue produit et sa structure four/ligne s'appuient sur
+de vrais extraits ERP fournis par l'entreprise, et son architecture d'accès
+par rôle répond directement à un besoin d'organisation exprimé par SEVAM.
