@@ -1,10 +1,11 @@
-PROTOTYPE — Fiche de déclaration d'écart numérique (SEVAM) — v4
+PROTOTYPE — Fiche de déclaration d'écart numérique (SEVAM) — v5
 =================================================================
 
 Ce dossier contient un prototype Python (Streamlit) qui démontre une version
 numérique de la fiche de déclaration d'écart proposée au chapitre 5 du
 rapport PFA, avec pilotage Pareto des causes en temps réel, catalogue produit
-réel et accès différencié par rôle.
+réel, connexion nom + poste adossée à un vrai annuaire SEVAM (Tit Mellil), et
+une base d'OF confirmés à sélectionner (plus besoin de tout ressaisir).
 
 Contenu :
 - app.py                                  -> l'application
@@ -42,6 +43,49 @@ Un sélecteur de rôle en haut de la barre latérale simule 4 niveaux d'accès :
 Il s'agit d'une démonstration de principe (pas d'authentification réelle) —
 voir l'onglet Méthodologie de l'application pour le détail et les limites.
 
+NOUVEAUTÉS v5 — connexion nom + poste, vrai annuaire Tit Mellil
+------------------------------------------------------------------
+L'écran d'accueil demande maintenant un NOM et affiche automatiquement le
+POSTE associé (au lieu d'un simple sélecteur de rôle) : le périmètre de
+données est déduit du poste, comme le ferait un annuaire d'entreprise réel.
+Les 10 postes proposés sont réels, identifiés sur la fiche de validation
+avant lancement transmise par SEVAM (réf. FN-PR-121-05-V.00, client
+SACOFRINA SA, site de Tit Mellil) : Adnane RAFIK (Chef Service Supply
+Chain), Youssef HAFFOU (Chef Département Supply Chain), Fatima Zahra AOUAB
+(Chef Département SMI), Abderrahim BELKHDIM (Chef Département Production —
+Four 2), Abderrahim ZNIDI (Chef Département Qualité Process), Asmaa KDAH
+(Chef Département Contrôle de Gestion), Abderrahim EL ABBADI (Directeur
+Exploitation), Hassan TAHRI (Directeur Commercial & Marketing), Bouchra
+SNAIBI (Directeur Administratif et Financier), Karim AMMAR (Directeur
+Général Délégué). Un compte "Autre" reste disponible pour les opérateurs de
+ligne et les postes de chef de service Four 1/3/4 (aucun nom réel confirmé
+pour ces deux derniers dans les documents transmis — affiché tel quel, sans
+nom inventé). Le périmètre visible gère aussi un niveau "site" (ex. tout Tit
+Mellil = U2+U3+U4) pour les postes qui supervisent un site entier.
+
+NOUVEAUTÉS v5 — Tit Mellil mis en avant
+-------------------------------------------
+La stagiaire étant affectée au site de Tit Mellil (fours U2/U3/U4,
+département Verre creux), les listes de lignes/fours de l'application sont
+triées avec Tit Mellil en premier (Roches Noires reste visible, jamais
+masqué), et la base d'OF confirmés (ci-dessous) est majoritairement
+construite sur Tit Mellil.
+
+NOUVEAUTÉS v5 — base d'OF confirmés (fin de la ressaisie manuelle)
+------------------------------------------------------------------
+L'onglet Saisie propose désormais deux modes : "OF confirmé" (par défaut),
+qui permet de choisir un OF déjà planifié dans une base existante — article,
+ligne/four et quantité planifiée se remplissent automatiquement, il ne reste
+qu'à saisir la quantité réalisée et la cause d'écart — et "Saisie manuelle"
+pour les OF hors liste (formulaire d'origine, conservé tel quel). La base
+contient 54 OF, dont 9 construits à partir de correspondances réelles
+vérifiables entre la fiche de validation avant lancement et le fichier réel
+"Copie de Suivi BC.xlsx" (suivi des commandes clients 2026) transmis par
+SEVAM, recoupé avec les libellés exacts du catalogue produit (clients réels
+SOTHERMA, JAD DISTRIBUTION, FLEUR ATLAS BELAAMRI, LES EAUX MINERALES
+D'OULMES, ROSLANE WINE & SPIRITS, SACOFRINA SA...). Chaque OF affiche sa
+provenance (donnée réelle / démonstration) directement dans le formulaire.
+
 INSTALLATION ET LANCEMENT (sur ton ordinateur)
 -----------------------------------------------
 1. Installer Python 3.9 ou plus récent (python.org).
@@ -63,20 +107,28 @@ dernière fois. Le redéploiement est automatique après le remplacement.
 
 UTILISATION EN SOUTENANCE
 --------------------------
-- Choisir un rôle dans la barre latérale pour montrer au jury la vue
-  Opérateur (simple) puis la vue DG (complète) : cela illustre concrètement
-  la maîtrise du besoin métier (qui doit voir quoi).
-- Onglet "Saisie d'une déclaration" : le champ Référence article est un vrai
-  catalogue SEVAM (article + décor + marque si personnalisé).
+- Se connecter avec un nom réel de l'annuaire (ex. Abderrahim BELKHDIM, Chef
+  Département Production Four 2) pour montrer au jury que le poste — donc le
+  périmètre visible — se déduit automatiquement du nom, puis se déconnecter
+  et se reconnecter en Karim AMMAR (Directeur Général Délégué) pour montrer
+  la vue complète : cela illustre concrètement la maîtrise du besoin métier
+  (qui doit voir quoi) ET l'ancrage dans l'organisation réelle de SEVAM.
+- Onglet "Saisie d'une déclaration" : mode "OF confirmé" par défaut — choisir
+  un OF dans la liste et montrer que l'article/ligne/quantité planifiée se
+  remplissent seuls (plus de ressaisie manuelle) ; basculer sur "Saisie
+  manuelle" pour montrer que l'ancien formulaire reste disponible.
 - Onglet "Pilotage QCD & Pareto" : Pareto des causes, répartition par ligne,
   top articles en écart, part des OF passés par l'atelier Décor.
 - Onglet "Impact économique" : traduction financière + simulation de gain
-  (+ vue comparative inter-départements pour la DG uniquement).
+  (+ vue comparative inter-départements pour la Direction uniquement).
 - Onglet "Méthodologie & note technique" : explique au jury la provenance
-  des données réelles, les limites assumées et les points à vérifier avec
-  SEVAM (codification U1/U4).
+  des données réelles (catalogue, annuaire, base d'OF confirmés), les
+  limites assumées et les points à vérifier avec SEVAM (codification U1/U4,
+  noms des chefs Four 1/3/4).
 
 Argument pour le jury : ce prototype ne se contente pas d'illustrer un
-concept — son catalogue produit et sa structure four/ligne s'appuient sur
-de vrais extraits ERP fournis par l'entreprise, et son architecture d'accès
-par rôle répond directement à un besoin d'organisation exprimé par SEVAM.
+concept — son catalogue produit, sa structure four/ligne, son annuaire des
+accès et sa base d'OF confirmés s'appuient sur de vrais documents fournis
+par l'entreprise (extraits ERP, fiche de validation avant lancement, suivi
+des commandes clients), et son architecture d'accès par nom + poste répond
+directement à un besoin d'organisation exprimé par SEVAM.

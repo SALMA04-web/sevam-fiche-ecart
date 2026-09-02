@@ -21,8 +21,9 @@ Auteur : SALMA — PFA SEVAM 2026
 """
 
 import base64
+import hashlib
 import os
-from datetime import date
+from datetime import date, datetime
 
 import pandas as pd
 import plotly.express as px
@@ -97,6 +98,20 @@ DEPARTEMENTS = cat.DEPARTEMENTS
 CAUSES = cat.CAUSES
 ROLES = cat.ROLES
 ARTICLES = cat.ARTICLES
+SITES = cat.SITES
+ANNUAIRE_REEL = cat.ANNUAIRE_REEL
+OF_CONFIRMES = cat.OF_CONFIRMES
+
+# Lignes triées en mettant Tit Mellil (site principal de la stagiaire) en avant,
+# sans jamais masquer Roches Noires.
+LIGNES_TIT_MELLIL_DABORD = (
+    [c for c, f in LIGNES if FOURS[f]["site"] == "Tit Mellil"]
+    + [c for c, f in LIGNES if FOURS[f]["site"] == "Roches Noires"]
+)
+FOURS_TIT_MELLIL_DABORD = (
+    [f for f in FOURS if FOURS[f]["site"] == "Tit Mellil"]
+    + [f for f in FOURS if FOURS[f]["site"] == "Roches Noires"]
+)
 
 
 @st.cache_data
@@ -127,20 +142,131 @@ def fours_du_departement(dep):
     return DEPARTEMENTS[dep]["fours"]
 
 
-def filtrer_par_perimetre(df, role, scope):
-    """Restreint un DataFrame au périmètre visible pour le rôle/scope choisis."""
-    if df.empty or role == "Directeur Général (DG)":
+def filtrer_par_perimetre(df, auth):
+    """Restreint un DataFrame au périmètre réellement accessible au compte connecté.
+
+    Le périmètre est déterminé par scope_type/scope_value (dérivés automatiquement
+    du poste, à la connexion) plutôt que par un simple choix manuel de rôle+scope :
+      - "ligne" : une ligne précise (Opérateur)
+      - "four"  : un four et ses lignes (ex. Abderrahim BELKHDIM -> Four 2)
+      - "site"  : tous les fours d'un site (ex. Tit Mellil = U2+U3+U4)
+      - "dept"  : un département (Gobeleterie / Verre creux / Décor)
+      - "all"   : aucune restriction (Direction, Contrôle de gestion)
+    """
+    if df.empty or auth is None:
         return df
-    if role == "Opérateur":
-        return df[df["Ligne"] == scope]
-    if role == "Chef de service":
-        return df[df["Four"] == scope]
-    if role == "Chef de département":
-        if scope == "Décor":
+    stype, sval = auth["scope_type"], auth["scope_value"]
+    if stype == "all":
+        return df
+    if stype == "ligne":
+        return df[df["Ligne"] == sval]
+    if stype == "four":
+        return df[df["Four"] == sval]
+    if stype == "site":
+        return df[df["Site"] == sval]
+    if stype == "dept":
+        if sval == "Décor":
             return df[df["Decore"] == "OUI"]
-        return df[df["Departement"] == scope]
+        return df[df["Departement"] == sval]
     return df
 
+
+def filtrer_of_confirmes(of_list, auth):
+    """Restreint la base des OF confirmés au même périmètre que filtrer_par_perimetre."""
+    if auth is None:
+        return of_list
+    stype, sval = auth["scope_type"], auth["scope_value"]
+    if stype == "all":
+        return of_list
+    if stype == "ligne":
+        return [o for o in of_list if o["ligne"] == sval]
+    if stype == "four":
+        return [o for o in of_list if o["four"] == sval]
+    if stype == "site":
+        return [o for o in of_list if o["site"] == sval]
+    if stype == "dept":
+        if sval == "Décor":
+            return [o for o in of_list if o["decore"]]
+        deps_ok = {sval}
+        return [o for o in of_list if FOURS[o["four"]]["departement"] in deps_ok or (sval == "Décor" and o["decore"])]
+    return of_list
+
+
+# =========================================================
+# CONNEXION — nom + poste (annuaire réel SEVAM), plutôt qu'un simple sélecteur
+# =========================================================
+if "auth" not in st.session_state:
+    st.session_state.auth = None
+
+if st.session_state.auth is None:
+    c_left, c_mid, c_right = st.columns([1, 1.3, 1])
+    with c_mid:
+        st.write("")
+        st.write("")
+        if LOGO_B64:
+            st.markdown(
+                f"<div style='text-align:center;'><img src='data:image/png;base64,{LOGO_B64}' "
+                f"style='max-width:260px;height:auto;'/></div>",
+                unsafe_allow_html=True,
+            )
+        st.markdown(
+            f"<h3 style='text-align:center;color:{SEVAM_RED_DARK};margin-top:6px;'>Connexion — "
+            f"Fiche de déclaration d'écart</h3>",
+            unsafe_allow_html=True,
+        )
+        st.caption(
+            "Identification par nom et poste, comme le ferait un accès réel adossé à l'annuaire "
+            "SEVAM / à l'ERP JD Edwards (SSO). Voir l'onglet Méthodologie une fois connecté pour le détail."
+        )
+
+        noms_annuaire = [p["nom"] for p in ANNUAIRE_REEL]
+        AUTRE = "Autre — opérateur / poste non listé dans l'annuaire"
+        choix_nom = st.selectbox("Nom", options=noms_annuaire + [AUTRE])
+
+        if choix_nom != AUTRE:
+            fiche = next(p for p in ANNUAIRE_REEL if p["nom"] == choix_nom)
+            st.text_input("Poste (rempli automatiquement depuis l'annuaire)", value=fiche["poste"], disabled=True)
+            st.caption(f"🗂️ Source : {fiche['note']}")
+            nom_final, poste_final = fiche["nom"], fiche["poste"]
+            tier_final, stype_final, sval_final = fiche["tier"], fiche["scope_type"], fiche["scope_value"]
+        else:
+            nom_final = st.text_input("Nom et prénom", placeholder="ex. Karim Benali")
+            postes_operateur = [(f"Opérateur — {LIGNE_LABELS[c]}", "Opérateur", "ligne", c) for c in LIGNES_TIT_MELLIL_DABORD]
+            postes_chef_four = [
+                (lbl, "Chef de service", "four", four)
+                for four, lbl in cat.POSTES_FOUR_NON_CONFIRMES.items()
+            ]
+            options_poste = postes_operateur + postes_chef_four
+            choix_poste = st.selectbox(
+                "Poste", options=range(len(options_poste)),
+                format_func=lambda i: options_poste[i][0],
+            )
+            poste_final, tier_final, stype_final, sval_final = options_poste[choix_poste]
+            if stype_final == "four":
+                st.caption(
+                    "⚠️ Aucun nom réel confirmé pour ce poste dans les documents transmis par "
+                    "SEVAM (seul le Four 2 a un signataire réel sur la fiche de validation "
+                    "disponible) — poste affiché tel quel, sans nom inventé."
+                )
+
+        st.write("")
+        connecte = st.button("Se connecter", type="primary", use_container_width=True)
+        if connecte:
+            if not nom_final:
+                st.error("Merci de renseigner un nom.")
+            else:
+                jeton = hashlib.sha256(f"{nom_final}-{datetime.now().isoformat()}".encode()).hexdigest()[:10].upper()
+                st.session_state.auth = {
+                    "nom": nom_final, "poste": poste_final, "tier": tier_final,
+                    "scope_type": stype_final, "scope_value": sval_final,
+                    "login_time": datetime.now().strftime("%d/%m/%Y %H:%M"),
+                    "session_token": jeton,
+                }
+                st.rerun()
+    st.stop()
+
+auth = st.session_state.auth
+role = auth["tier"]
 
 with st.sidebar:
     if LOGO_B64:
@@ -154,39 +280,37 @@ with st.sidebar:
     else:
         st.markdown("### 🏭 SEVAM")
 
-    st.write("")
-    st.markdown("**Session (démonstration)**")
-    st.caption(
-        "Simule la connexion d'un utilisateur : chaque rôle voit une vue adaptée à son "
-        "périmètre. Il ne s'agit pas d'une authentification réelle — voir onglet Méthodologie."
-    )
-    role = st.selectbox("Rôle", ROLES, index=0)
-
-    scope = None
-    scope_label = "Tous les départements"
-    if role == "Opérateur":
-        scope = st.selectbox(
-            "Votre ligne", options=[code for code, _ in LIGNES],
-            format_func=lambda code: LIGNE_LABELS[code],
-        )
-        scope_label = LIGNE_LABELS[scope]
-    elif role == "Chef de service":
-        scope = st.selectbox(
-            "Votre four", options=list(FOURS.keys()),
-            format_func=lambda f: f"{f} — {FOURS[f]['site']}",
-        )
-        scope_label = f"Four {scope} ({FOURS[scope]['site']})"
-    elif role == "Chef de département":
-        scope = st.selectbox("Votre département", options=list(DEPARTEMENTS.keys()))
-        scope_label = f"Département {scope}"
+    # Libellé du périmètre, dérivé de auth (scope_type/scope_value)
+    _stype, _sval = auth["scope_type"], auth["scope_value"]
+    if _stype == "ligne":
+        scope_label = LIGNE_LABELS[_sval]
+    elif _stype == "four":
+        scope_label = f"Four {_sval} ({FOURS[_sval]['site']})"
+    elif _stype == "site":
+        scope_label = f"Site {_sval} (fours {', '.join(SITES[_sval])})"
+    elif _stype == "dept":
+        scope_label = f"Département {_sval}"
     else:
-        scope_label = "Tous les départements (DG)"
+        scope_label = "Tous les sites, tous les départements"
 
+    st.write("")
+    st.markdown("**Session**")
     st.markdown(
-        f"<div style='padding:8px 10px;background:#EEF2F9;border-left:4px solid {BLUE_ROLE};"
-        f"border-radius:4px;font-size:12.5px;color:{GREY_TEXT};margin-top:4px;'>"
-        f"Connecté en tant que <b>{role}</b><br>Périmètre : <b>{scope_label}</b></div>",
+        f"<div style='padding:10px 12px;background:#EEF2F9;border-left:4px solid {BLUE_ROLE};"
+        f"border-radius:4px;font-size:12.5px;color:{GREY_TEXT};'>"
+        f"👤 <b>{auth['nom']}</b><br>{auth['poste']}<br>"
+        f"Périmètre : <b>{scope_label}</b><br>"
+        f"<span style='font-size:11px;color:#8892A0;'>Connecté le {auth['login_time']} · "
+        f"jeton de session {auth['session_token']}</span></div>",
         unsafe_allow_html=True,
+    )
+    if st.button("Se déconnecter", use_container_width=True):
+        st.session_state.auth = None
+        st.rerun()
+    st.caption(
+        "Connexion par nom + poste, adossée à l'annuaire réel SEVAM (fiche de validation avant "
+        "lancement). Il ne s'agit pas d'une authentification réelle (pas de mot de passe / SSO) "
+        "— voir l'onglet Méthodologie pour le détail et les limites."
     )
 
     st.write("")
@@ -203,14 +327,16 @@ with st.sidebar:
 
     st.write("")
     st.markdown("**Résumé rapide (votre périmètre)**")
-    _df_scope = filtrer_par_perimetre(st.session_state.declarations, role, scope)
+    _df_scope = filtrer_par_perimetre(st.session_state.declarations, auth)
     if not _df_scope.empty:
         st.metric("OF suivis", int(_df_scope["N_OF"].nunique()))
         st.metric("Taux de service", f"{(_df_scope['Qte_Realisee'].sum()/_df_scope['Qte_Planifiee'].sum()*100):.1f}%")
 
     st.write("")
-    with st.expander("🏭 Parc de fours SEVAM"):
-        for code, info in FOURS.items():
+    with st.expander("🏭 Parc de fours SEVAM — Tit Mellil en priorité"):
+        st.caption(f"📍 Site principal de la stagiaire : **{cat.SITE_PRINCIPAL}**")
+        for code in FOURS_TIT_MELLIL_DABORD:
+            info = FOURS[code]
             st.caption(f"**{code}** — {info['site']} · {info['departement']} · {info['statut']}")
         st.caption(
             "Codification des lignes L11/L12/L13 (four U2) et L21/L22/L23 (four U3) confirmée "
@@ -221,8 +347,9 @@ with st.sidebar:
     with st.expander("ℹ️ À propos de ce prototype"):
         st.caption(
             "Développé en Python (Streamlit, Pandas, Plotly) dans le cadre du PFA "
-            "« Diagnostic des écarts de production — SEVAM ». Catalogue produit et structure "
-            "four/ligne reconstruits à partir de fichiers réels transmis par l'entreprise."
+            "« Diagnostic des écarts de production — SEVAM ». Catalogue produit, structure "
+            "four/ligne, annuaire des accès et base d'OF confirmés reconstruits à partir de "
+            "fichiers réels transmis par l'entreprise."
         )
 
 # =========================================================
@@ -248,7 +375,8 @@ st.markdown(
             </div>
         </div>
         <div style="background:rgba(255,255,255,0.15);padding:8px 14px;border-radius:6px;color:white;font-size:13px;text-align:right;">
-            👤 <b>{role}</b><br><span style="font-size:11.5px;">{scope_label}</span>
+            👤 <b>{auth['nom']}</b><br><span style="font-size:11.5px;">{auth['poste']}</span><br>
+            <span style="font-size:11px;opacity:0.85;">{scope_label}</span>
         </div>
     </div>
     """,
@@ -278,38 +406,102 @@ with tab_map["📝 Saisie d'une déclaration"]:
     with col_form:
         st.subheader("Nouvelle déclaration")
 
-        if role == "Opérateur":
-            lignes_possibles = [scope]
-        elif role == "Chef de service":
-            lignes_possibles = lignes_du_four(scope)
-        elif role == "Chef de département":
-            fours_dep = fours_du_departement(scope) if scope != "Décor" else list(FOURS.keys())
-            lignes_possibles = [code for code, four in LIGNES if four in fours_dep]
+        if auth["scope_type"] == "ligne":
+            lignes_possibles = [auth["scope_value"]]
+        elif auth["scope_type"] == "four":
+            lignes_possibles = lignes_du_four(auth["scope_value"])
+        elif auth["scope_type"] == "site":
+            fours_site = SITES[auth["scope_value"]]
+            lignes_possibles = [code for code, four in LIGNES if four in fours_site]
+        elif auth["scope_type"] == "dept":
+            if auth["scope_value"] == "Décor":
+                lignes_possibles = [code for code, _ in LIGNES]
+            else:
+                fours_dep = fours_du_departement(auth["scope_value"])
+                lignes_possibles = [code for code, four in LIGNES if four in fours_dep]
         else:
-            lignes_possibles = [code for code, _ in LIGNES]
+            lignes_possibles = LIGNES_TIT_MELLIL_DABORD
 
-        with st.form("form_declaration", clear_on_submit=True):
-            c1, c2, c3 = st.columns(3)
-            with c1:
-                n_of = st.text_input("N° OF concerné", placeholder="OF-2026-0458")
-                d = st.date_input("Date", value=date(2026, 7, 1))
-            with c2:
-                ligne_choice = st.selectbox(
-                    "Ligne / Four", options=lignes_possibles,
-                    format_func=lambda code: LIGNE_LABELS[code],
-                )
-                four_sel = dict(LIGNES)[ligne_choice]
-                dep_sel = FOURS[four_sel]["departement"]
-                famille_sel = "Gobeleterie (verres)" if dep_sel == "Gobeleterie" else "Verre creux (bouteilles / pots)"
-                articles_dispo = cat.ARTICLES_BY_FAMILLE[famille_sel]
-                article_choice = st.selectbox(
-                    "Référence article", options=range(len(articles_dispo)),
-                    format_func=lambda i: articles_dispo[i]["article"] + (" 🎨 (décor)" if articles_dispo[i]["decore"] else ""),
-                )
-                art_rec = articles_dispo[article_choice]
-            with c3:
-                qte_plan = st.number_input("Quantité planifiée", min_value=0, value=10000, step=100)
-                qte_real = st.number_input("Quantité réalisée", min_value=0, value=9200, step=100)
+        of_dispo = filtrer_of_confirmes(OF_CONFIRMES, auth)
+        of_dispo = [o for o in of_dispo if o["ligne"] in lignes_possibles]
+
+        mode_saisie = st.radio(
+            "Mode de saisie",
+            options=["🔎 OF confirmé (base ERP du jour)", "✍️ Saisie manuelle (OF hors liste)"],
+            horizontal=True,
+            help="La base d'OF confirmés reprend les OF déjà planifiés — plus besoin de retaper "
+                 "l'article, la ligne et la quantité planifiée à chaque déclaration.",
+        )
+
+        mode_of = mode_saisie.startswith("🔎")
+
+        if mode_of and not of_dispo:
+            st.warning(
+                "Aucun OF confirmé disponible sur votre périmètre pour l'instant — bascule "
+                "automatique en saisie manuelle."
+            )
+            mode_of = False
+
+        if mode_of:
+            # ---- Mode 1 : sélection d'un OF déjà confirmé (base ERP du jour) ----
+            of_sel_idx = st.selectbox(
+                "OF confirmé à déclarer", options=range(len(of_dispo)),
+                format_func=lambda i: (
+                    f"{of_dispo[i]['n_of']} — {of_dispo[i]['client']} — {of_dispo[i]['article']} "
+                    f"({LIGNE_LABELS[of_dispo[i]['ligne']]})"
+                ),
+            )
+            of_sel = of_dispo[of_sel_idx]
+            art_rec = {
+                "article": of_sel["article"], "famille": of_sel["famille"],
+                "decore": of_sel["decore"], "marque": of_sel["marque"],
+            }
+            n_of, ligne_choice, four_sel = of_sel["n_of"], of_sel["ligne"], of_sel["four"]
+            dep_sel = FOURS[four_sel]["departement"]
+            qte_plan = of_sel["qte_planifiee"]
+            d_defaut = of_sel["date"]
+
+            badge_source = "🟢 donnée réelle (recoupée entre deux fichiers SEVAM)" if of_sel["source"] == "reel" else "🟡 OF de démonstration (élargissement de la base)"
+            st.markdown(
+                f"<div style='padding:10px 14px;border-left:4px solid {BLUE_ROLE};background:#F5F8FC;border-radius:4px;font-size:13px;'>"
+                f"<b>{n_of}</b> — Client : <b>{of_sel['client']}</b><br>"
+                f"Article : <b>{art_rec['article']}</b>{' 🎨 (décor — ' + (art_rec['marque'] or 'personnalisation générique') + ')' if art_rec['decore'] else ''}<br>"
+                f"Ligne / Four : <b>{LIGNE_LABELS[ligne_choice]}</b> · Site : <b>{FOURS[four_sel]['site']}</b><br>"
+                f"Quantité planifiée : <b>{qte_plan:,}</b> unités · Date prévue : <b>{d_defaut.strftime('%d/%m/%Y')}</b><br>"
+                f"<span style='font-size:11px;color:#8892A0;'>{badge_source} — {of_sel['source_detail']}</span>"
+                f"</div>",
+                unsafe_allow_html=True,
+            )
+
+        with st.form("form_declaration", clear_on_submit=not mode_of):
+            if mode_of:
+                c1, c2 = st.columns(2)
+                with c1:
+                    d = st.date_input("Date de déclaration", value=of_sel["date"])
+                with c2:
+                    qte_real = st.number_input("Quantité réalisée", min_value=0, value=int(qte_plan * 0.92), step=100)
+            else:
+                c1, c2, c3 = st.columns(3)
+                with c1:
+                    n_of = st.text_input("N° OF concerné", placeholder="OF-2026-0458")
+                    d = st.date_input("Date", value=date(2026, 7, 1))
+                with c2:
+                    ligne_choice = st.selectbox(
+                        "Ligne / Four", options=lignes_possibles,
+                        format_func=lambda code: LIGNE_LABELS[code],
+                    )
+                    four_sel = dict(LIGNES)[ligne_choice]
+                    dep_sel = FOURS[four_sel]["departement"]
+                    famille_sel = "Gobeleterie (verres)" if dep_sel == "Gobeleterie" else "Verre creux (bouteilles / pots)"
+                    articles_dispo = cat.ARTICLES_BY_FAMILLE[famille_sel]
+                    article_choice = st.selectbox(
+                        "Référence article", options=range(len(articles_dispo)),
+                        format_func=lambda i: articles_dispo[i]["article"] + (" 🎨 (décor)" if articles_dispo[i]["decore"] else ""),
+                    )
+                    art_rec = articles_dispo[article_choice]
+                with c3:
+                    qte_plan = st.number_input("Quantité planifiée", min_value=0, value=10000, step=100)
+                    qte_real = st.number_input("Quantité réalisée", min_value=0, value=9200, step=100)
 
             causes_possibles = list(CAUSES.keys()) if art_rec["decore"] else [k for k in CAUSES if k != "DECOR"]
             cause = st.selectbox(
@@ -317,9 +509,9 @@ with tab_map["📝 Saisie d'une déclaration"]:
                 format_func=lambda c: f"{c} — {CAUSES[c]}",
             )
             commentaire = st.text_area("Commentaire libre", placeholder="Arrêt non planifié — remise en route à 14h20...")
-            declare_par = st.text_input("Déclaré par", placeholder="Nom, prénom")
+            declare_par = st.text_input("Déclaré par", value=auth["nom"], disabled=True)
 
-            if art_rec["decore"]:
+            if not mode_of and art_rec["decore"]:
                 st.caption(f"🎨 Article de l'atelier Décor — client/marque : **{art_rec['marque'] or 'personnalisation générique'}**")
 
             submitted = st.form_submit_button("Enregistrer la déclaration", type="primary")
@@ -355,7 +547,7 @@ with tab_map["📝 Saisie d'une déclaration"]:
                 )
 
         st.write("")
-        df_perimetre = filtrer_par_perimetre(st.session_state.declarations, role, scope)
+        df_perimetre = filtrer_par_perimetre(st.session_state.declarations, auth)
         st.caption(f"{len(df_perimetre)} déclarations visibles dans votre périmètre ({role} — {scope_label}).")
         st.dataframe(
             df_perimetre.sort_values("Date", ascending=False).head(15),
@@ -364,7 +556,7 @@ with tab_map["📝 Saisie d'une déclaration"]:
 
         if role == "Opérateur" and not df_perimetre.empty:
             st.write("")
-            st.markdown("**Votre performance récente (ligne " + scope + ")**")
+            st.markdown("**Votre performance récente (" + scope_label + ")**")
             o1, o2, o3 = st.columns(3)
             taux = df_perimetre["Qte_Realisee"].sum() / df_perimetre["Qte_Planifiee"].sum() if df_perimetre["Qte_Planifiee"].sum() else 0
             o1.metric("Taux de service", f"{taux*100:.1f}%")
@@ -411,7 +603,7 @@ with tab_map["📝 Saisie d'une déclaration"]:
 # =========================================================
 if "📊 Pilotage QCD & Pareto" in tab_map:
     with tab_map["📊 Pilotage QCD & Pareto"]:
-        df = filtrer_par_perimetre(st.session_state.declarations, role, scope).copy()
+        df = filtrer_par_perimetre(st.session_state.declarations, auth).copy()
         df["Statut"] = df.apply(
             lambda r: "A traiter" if pd.notna(r["Ecart_Pct"]) and abs(r["Ecart_Pct"]) > seuil_alerte else "OK", axis=1
         )
@@ -535,7 +727,7 @@ if "📊 Pilotage QCD & Pareto" in tab_map:
 # =========================================================
 if "💰 Impact économique" in tab_map:
     with tab_map["💰 Impact économique"]:
-        df = filtrer_par_perimetre(st.session_state.declarations, role, scope).copy()
+        df = filtrer_par_perimetre(st.session_state.declarations, auth).copy()
         st.markdown("#### Traduction financière des écarts")
         st.caption(
             f"Périmètre affiché : **{role} — {scope_label}**. Le coût unitaire est paramétrable "
@@ -653,45 +845,108 @@ with tab_map["📘 Méthodologie & note technique"]:
         "incidents propres à cette étape (casse, défaut d'impression)."
     )
 
-    st.markdown("**5. Accès différencié par rôle**")
+    st.markdown("**5. Connexion par nom + poste, adossée à un vrai annuaire SEVAM**")
     st.markdown(
-        "Quatre rôles sont simulés via le sélecteur en haut de la barre latérale, chacun avec un "
-        "périmètre de données et un jeu d'onglets adaptés :\n\n"
-        "- **Opérateur** : voit uniquement la saisie, restreinte à sa ligne, et un résumé simplifié "
-        "de sa propre performance (pas de coûts consolidés, pas de vue des autres lignes).\n"
-        "- **Chef de service** : pilote un four (toutes ses lignes) — saisie + tableau de bord QCD/Pareto.\n"
-        "- **Chef de département** : pilote un département (Gobeleterie, Verre creux ou Décor) — "
-        "accès en plus à l'impact économique de son département.\n"
-        "- **Directeur Général** : accès complet à tous les départements, toutes les lignes, "
-        "tous les coûts, avec une vue comparative inter-départements réservée à ce rôle.\n\n"
-        "⚠️ Il s'agit d'une **démonstration de principe** (un simple sélecteur de rôle dans la "
-        "barre latérale) : aucune authentification réelle n'est implémentée dans ce prototype."
+        "La page de connexion demande un **nom** et affiche automatiquement le **poste** associé, "
+        "plutôt qu'un simple sélecteur de rôle : le périmètre de données (tier + scope) est déduit "
+        "du poste, comme le ferait un annuaire d'entreprise réel (Active Directory / SSO).\n\n"
+        "Les 10 postes proposés dans l'annuaire proviennent tous de personnes et fonctions **réelles**, "
+        "identifiées sur la **fiche de validation avant lancement** transmise par SEVAM "
+        "(réf. FN-PR-121-05-V.00, client SACOFRINA SA, article APO 33 CL VA SACO, ligne L-23, site "
+        "de Tit Mellil — Figure 3.4 du rapport) :\n\n"
+        "- Adnane RAFIK — Chef Service Supply Chain\n"
+        "- Youssef HAFFOU — Chef Département Supply Chain\n"
+        "- Fatima Zahra AOUAB — Chef Département SMI\n"
+        "- Abderrahim BELKHDIM — Chef Département Production, Four 2 (U2)\n"
+        "- Abderrahim ZNIDI — Chef Département Qualité Process\n"
+        "- Asmaa KDAH — Chef Département Contrôle de Gestion\n"
+        "- Abderrahim EL ABBADI — Directeur Exploitation\n"
+        "- Hassan TAHRI — Directeur Commercial & Marketing\n"
+        "- Bouchra SNAIBI — Directeur Administratif et Financier\n"
+        "- Karim AMMAR — Directeur Général Délégué\n\n"
+        "⚠️ Seul le Four 2 a un signataire réel confirmé sur la fiche disponible : les postes "
+        "« Chef Département Production » des Fours 1, 3 et 4 sont donc proposés dans l'option "
+        "« Autre » du formulaire de connexion, sans nom inventé, avec la mention explicite "
+        "« nom à confirmer »."
     )
 
-    st.markdown("**6. Cohérence avec le rapport PFA**")
+    st.markdown("**6. Périmètre de données par poste (scope)**")
+    st.markdown(
+        "Le périmètre visible (tableau de bord, Pareto, impact économique, base d'OF confirmés) est "
+        "calculé automatiquement selon le type de poste :\n\n"
+        "- **Ligne** (opérateurs) : uniquement leur ligne.\n"
+        "- **Four** (ex. Abderrahim BELKHDIM) : le four et ses 3 lignes.\n"
+        "- **Site** (ex. Adnane RAFIK, Youssef HAFFOU, Fatima Zahra AOUAB, Abderrahim ZNIDI — postes "
+        "Supply Chain / SMI / Qualité process) : tous les fours d'un site — **Tit Mellil (U2+U3+U4) "
+        "ou Roches Noires (U1)** — puisque ces fonctions supervisent un site entier, pas un seul four.\n"
+        "- **Département** : un département (Gobeleterie, Verre creux ou Décor).\n"
+        "- **Tous les sites** (Contrôle de Gestion, Directions) : aucune restriction.\n\n"
+        "⚠️ Il s'agit d'une **démonstration de principe** : le nom et le poste sont déclaratifs (pas "
+        "de mot de passe, pas de vérification d'identité) — voir le point 9 pour l'évolution vers une "
+        "authentification réelle."
+    )
+
+    st.markdown("**7. Site principal mis en avant : Tit Mellil**")
+    st.markdown(
+        "La stagiaire étant affectée au site de **Tit Mellil** (fours U2, U3, U4 — département Verre "
+        "creux), l'interface met ce site en avant par défaut sans masquer Roches Noires (U1, "
+        "Gobeleterie) : listes de lignes/fours triées avec Tit Mellil en premier, base d'OF confirmés "
+        "élargie majoritairement sur Tit Mellil (2/3 des OF générés), et rappel du site principal dans "
+        "l'expander « Parc de fours SEVAM »."
+    )
+
+    st.markdown("**8. Base d'OF confirmés — fin de la ressaisie manuelle**")
+    st.markdown(
+        "Besoin exprimé par l'entreprise : ne pas retaper article, ligne et quantité planifiée à "
+        "chaque déclaration alors que l'OF est déjà confirmé côté planification. L'onglet Saisie "
+        "propose donc deux modes :\n\n"
+        "- **🔎 OF confirmé** (par défaut) : sélection dans une base d'OF déjà planifiés — l'article, "
+        "le décor/la marque, la ligne/le four et la quantité planifiée se remplissent automatiquement ; "
+        "il ne reste qu'à saisir la quantité réalisée et la cause d'écart.\n"
+        "- **✍️ Saisie manuelle** : conservée pour les OF hors liste (formulaire d'origine).\n\n"
+        f"La base contient **{len(cat.OF_CONFIRMES)} OF**, dont **{sum(1 for o in cat.OF_CONFIRMES if o['source']=='reel')} "
+        "construits à partir de correspondances réelles vérifiables** entre deux sources transmises "
+        "par SEVAM : la fiche de validation avant lancement (client SACOFRINA SA) et le fichier "
+        "**« Copie de Suivi BC.xlsx »** (suivi des commandes clients 2026), recoupés avec les libellés "
+        "exacts du catalogue produit (ex. AIN SAISS 75/50/33 CL / SOTHERMA, TROPICANA 1 L VB / JAD "
+        "DISTRIBUTION, BLLE EAU DE ROSE 1L AVIS VV / FLEUR ATLAS BELAAMRI, OULMES FRUITE 25 VIS BAGUE "
+        "EMO / LES EAUX MINERALES D'OULMES, BORDELAISE 500 VB ALMA RWS / ROSLANE WINE & SPIRITS — le "
+        "suffixe RWS de l'article correspond au vrai client). Chaque OF affiche sa provenance "
+        "(🟢 réel / 🟡 démonstration) directement dans le formulaire de saisie, dans la même logique "
+        "de transparence que le champ `source` du catalogue produit."
+    )
+
+    st.markdown("**9. Cohérence avec le rapport PFA**")
     st.markdown(
         "- Les champs du formulaire reprennent ceux de la fiche du chapitre 5, enrichis du champ Décor.\n"
         "- Le graphique Pareto formalise numériquement le vote pondéré des causes du chapitre 4.\n"
         "- L'intégration à l'ERP JD Edwards et à Qlik Sense reprend la piste d'amélioration du rapport."
     )
 
-    st.markdown("**7. Limites assumées de ce prototype**")
+    st.markdown("**10. Limites assumées de ce prototype**")
     st.markdown(
         "- Les déclarations affichées par défaut restent des **données de démonstration** générées "
-        "(quantités, dates, causes) — seuls les **noms d'articles, les marques et la structure "
-        "four/ligne U2/U3** sont directement issus des fichiers réels.\n"
-        "- Pas de base de données persistante ni d'authentification réelle (voir point 5).\n"
+        "(quantités réalisées, causes) — les **noms d'articles, les marques, la structure four/ligne "
+        "U2/U3, l'annuaire des postes et une partie des OF confirmés** sont directement issus de "
+        "fichiers réels transmis par l'entreprise.\n"
+        "- Pas de base de données persistante ni d'authentification réelle (nom/poste déclaratifs, "
+        "sans mot de passe ni vérification d'identité — voir points 5 et 6).\n"
         "- Le coût unitaire est un paramètre à ajuster, pas une donnée validée par le contrôle de gestion.\n"
-        "- La codification des lignes de U1 et U4 est une extrapolation à confirmer avec SEVAM."
+        "- La codification des lignes de U1 et U4, et les noms des chefs Four 1/3/4, sont à confirmer "
+        "avec SEVAM.\n"
+        "- Les couples client/article des OF « démonstration » (🟡) sont illustratifs, pas garantis réels."
     )
 
-    st.markdown("**8. Pistes d'évolution vers un outil de production**")
+    st.markdown("**11. Pistes d'évolution vers un outil de production**")
     st.markdown(
-        "- Connexion réelle à l'ERP JD Edwards et authentification SSO par rôle (Active Directory).\n"
-        "- Base de données persistante (ex. SQL Server déjà utilisé par SEVAM).\n"
-        "- Traçabilité fine des déclarations (qui a saisi, quand, depuis quel poste).\n"
+        "- Authentification réelle (mot de passe, SSO Active Directory) derrière l'écran de connexion "
+        "nom + poste déjà en place dans ce prototype.\n"
+        "- Base de données persistante (ex. SQL Server déjà utilisé par SEVAM) pour les déclarations "
+        "et la base d'OF confirmés, alimentée automatiquement par l'ERP JD Edwards.\n"
+        "- Traçabilité fine des déclarations (qui a saisi, quand, depuis quel poste) — déjà esquissée "
+        "par le jeton de session affiché dans la barre latérale.\n"
         "- Publication automatique vers Qlik Sense via connecteur API, avec des vues déjà filtrées "
-        "par rôle comme dans ce prototype."
+        "par poste comme dans ce prototype."
     )
 
     st.write("")

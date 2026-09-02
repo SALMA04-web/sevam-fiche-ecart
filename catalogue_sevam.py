@@ -66,6 +66,74 @@ CAUSES = {
 # =========================================================
 ROLES = ["Opérateur", "Chef de service", "Chef de département", "Directeur Général (DG)"]
 
+# Site principal de la stagiaire (utilisé pour mettre en avant Tit Mellil par défaut
+# dans l'interface, sans masquer Roches Noires).
+SITE_PRINCIPAL = "Tit Mellil"
+SITES = {
+    "Tit Mellil": ["U2", "U3", "U4"],
+    "Roches Noires": ["U1"],
+}
+
+# =========================================================
+# ANNUAIRE RÉEL — vrais types d'accès (issus de la fiche de validation avant
+# lancement, réf. FN-PR-121-05-V.00, client SACOFRINA SA, article APO 33 CL VA
+# SACO, ligne L-23, site de Tit Mellil — voir Figure 3.4 du rapport PFA) et de
+# l'organigramme du rapport. Chaque entrée associe une vraie personne / un vrai
+# poste à un niveau d'accès (tier) et un périmètre de données (scope) réutilisant
+# la structure four/ligne/département déjà validée.
+#
+# scope_type :
+#   "ligne"  -> une seule ligne de production (Opérateur)
+#   "four"   -> un four et toutes ses lignes (Chef de service)
+#   "site"   -> tous les fours d'un site, ex. Tit Mellil = U2+U3+U4 (Chef de
+#               département "site", ex. Supply Chain, SMI, Qualité process)
+#   "dept"   -> un département au sens gobeleterie/verre creux/décor
+#   "all"    -> tous les sites, tous les départements (Direction)
+# =========================================================
+ANNUAIRE_REEL = [
+    {"nom": "Adnane RAFIK", "poste": "Chef Service Supply Chain",
+     "tier": "Chef de service", "scope_type": "site", "scope_value": "Tit Mellil",
+     "source": "reel", "note": "Encadrant de stage — service Logistique, Tit Mellil."},
+    {"nom": "Youssef HAFFOU", "poste": "Chef Département Supply Chain",
+     "tier": "Chef de département", "scope_type": "site", "scope_value": "Tit Mellil",
+     "source": "reel", "note": "Fiche de validation avant lancement — signataire."},
+    {"nom": "Fatima Zahra AOUAB", "poste": "Chef Département SMI (Système de Management Intégré)",
+     "tier": "Chef de département", "scope_type": "site", "scope_value": "Tit Mellil",
+     "source": "reel", "note": "Fiche de validation avant lancement — signataire."},
+    {"nom": "Abderrahim BELKHDIM", "poste": "Chef Département Production — Four 2 (U2)",
+     "tier": "Chef de service", "scope_type": "four", "scope_value": "U2",
+     "source": "reel", "note": "Fiche de validation avant lancement — signataire."},
+    {"nom": "Abderrahim ZNIDI", "poste": "Chef Département Qualité Process",
+     "tier": "Chef de département", "scope_type": "site", "scope_value": "Tit Mellil",
+     "source": "reel", "note": "Fiche de validation avant lancement — signataire."},
+    {"nom": "Asmaa KDAH", "poste": "Chef Département Contrôle de Gestion",
+     "tier": "Chef de département", "scope_type": "all", "scope_value": None,
+     "source": "reel", "note": "Fiche de validation avant lancement — signataire (vue coûts inter-sites)."},
+    {"nom": "Abderrahim EL ABBADI", "poste": "Directeur Exploitation",
+     "tier": "Directeur Général (DG)", "scope_type": "all", "scope_value": None,
+     "source": "reel", "note": "Fiche de validation avant lancement — signataire."},
+    {"nom": "Hassan TAHRI", "poste": "Directeur Commercial & Marketing",
+     "tier": "Directeur Général (DG)", "scope_type": "all", "scope_value": None,
+     "source": "reel", "note": "Fiche de validation avant lancement — signataire."},
+    {"nom": "Bouchra SNAIBI", "poste": "Directeur Administratif et Financier",
+     "tier": "Directeur Général (DG)", "scope_type": "all", "scope_value": None,
+     "source": "reel", "note": "Fiche de validation avant lancement — signataire."},
+    {"nom": "Karim AMMAR", "poste": "Directeur Général Délégué",
+     "tier": "Directeur Général (DG)", "scope_type": "all", "scope_value": None,
+     "source": "reel", "note": "Fiche de validation avant lancement — signataire."},
+]
+
+# Postes de chefs de service Four 1 / Four 3 / Four 4 : aucun nom réel confirmé
+# n'apparaît dans les documents transmis (seul le Four 2 a un signataire réel sur
+# la fiche de validation disponible) — ces postes restent donc "à pourvoir" côté
+# annuaire plutôt que de fabriquer un nom, et apparaissent uniquement dans le
+# formulaire de connexion "Autre" avec une mention explicite.
+POSTES_FOUR_NON_CONFIRMES = {
+    "U1": "Chef Département Production — Four 1 (nom à confirmer)",
+    "U3": "Chef Département Production — Four 3 (nom à confirmer)",
+    "U4": "Chef Département Production — Four 4 (nom à confirmer)",
+}
+
 # =========================================================
 # CATALOGUE DES ARTICLES (246 références : 207 réelles + 39 ajoutées pour élargir le choix)
 # =========================================================
@@ -324,3 +392,128 @@ ARTICLES_BY_FAMILLE = {
 }
 
 MARQUES_DECOR = sorted({a["marque"] for a in ARTICLES if a["marque"]})
+
+# =========================================================
+# BASE DES OF CONFIRMÉS (« OF du jour ») — réponse au besoin exprimé par
+# l'entreprise : ne pas ressaisir manuellement un OF déjà confirmé côté
+# planification, mais le sélectionner dans une base existante (comme le ferait
+# une intégration réelle avec l'ERP JD Edwards).
+#
+# 9 OF sont construits à partir de correspondances réelles et vérifiables entre
+# deux sources transmises par l'entreprise (source="reel") :
+#   - la fiche de validation avant lancement (Figure 3.4 du rapport, réf.
+#     FN-PR-121-05-V.00) : client SACOFRINA SA, article "APO 33 CL VA SACO",
+#     ligne L-23 ;
+#   - le fichier réel "Copie de Suivi BC.xlsx" (suivi des commandes clients
+#     2026, feuilles "Suivi commandes 2026" et "Etats BC reçus 2026 i") qui
+#     donne de vrais couples client / référence article, recoupés avec les
+#     libellés exacts du catalogue ci-dessus (ex. "AIN SAISS 75 CL" / SOTHERMA,
+#     "TROPICANA 1 L VB" / JAD DISTRIBUTION, "BLLE EAU DE ROSE 1L AVIS VV" /
+#     FLEUR ATLAS BELAAMRI, "OULMES FRUITE 25 VIS BAGUE EMO" / LES EAUX
+#     MINERALES D'OULMES, "BORDELAISE 500 VB ALMA RWS" / ROSLANE WINE & SPIRITS
+#     — le suffixe RWS de l'article correspond au vrai client).
+# Les autres OF (source="genere") élargissent la base à d'autres lignes/articles
+# du catalogue, avec des clients réels de "Copie de Suivi BC.xlsx" réutilisés
+# à titre illustratif (le couple client/article n'est alors pas garanti réel).
+# =========================================================
+import datetime as _dt
+
+_OF_REELS_BASE = [
+    # (client, libellé article exact du catalogue, ligne, source_detail)
+    ("SACOFRINA SA", "APO 33 CL VA SACO", "L23",
+     "Fiche de validation avant lancement (Figure 3.4 du rapport, FN-PR-121-05-V.00)"),
+    ("LES EAUX MINERALES D'OULMES", "OULMES FRUITE 25 VIS BAGUE EMO", "L11",
+     "Copie de Suivi BC.xlsx — Etats BC reçus 2026"),
+    ("ROSLANE WINE & SPIRITS", "BORDELAISE 500 VB ALMA RWS", "L22",
+     "Copie de Suivi BC.xlsx — Suivi commandes 2026 (client RWS)"),
+    ("FLEUR ATLAS BELAAMRI", "BLLE EAU DE ROSE 1L  AVIS VV", "L12",
+     "Copie de Suivi BC.xlsx — Etats BC reçus 2026"),
+    ("SOTHERMA", "AIN SAISS 75 CL", "L13",
+     "Copie de Suivi BC.xlsx — Etats BC reçus 2026"),
+    ("SOTHERMA", "AIN SAISS 50 CL", "L21",
+     "Copie de Suivi BC.xlsx — Etats BC reçus 2026"),
+    ("SOTHERMA", "AIN SAISS 33 CL", "L31",
+     "Copie de Suivi BC.xlsx — Etats BC reçus 2026"),
+    ("JAD DISTRIBUTION", "TROPICANA 1 L VB", "L23",
+     "Copie de Suivi BC.xlsx — Etats BC reçus 2026"),
+    ("SOCIETE DES  CAFES SAHARA", "6V/ CAFE ARABICA FL", "L01",
+     "Copie de Suivi BC.xlsx — Suivi commandes 2026"),
+]
+
+_CLIENTS_GENERIQUES = [
+    "THALVIN", "SOCIETE DES BOISSONS DU MAROC", "EPICES GIRONA SARL", "FYLAR SARL",
+    "LES AROMES DU MAROC", "STE UNIDIS SARL", "OKSA",
+]
+
+_ARTICLES_INDEX = {a["article"]: a for a in ARTICLES}
+
+
+def _four_de_ligne(ligne_code):
+    return dict(LIGNES)[ligne_code]
+
+
+def _build_of_confirmes():
+    of_list = []
+    n = 1000
+    aujourdhui = _dt.date(2026, 9, 2)
+
+    def _next_n_of():
+        nonlocal n
+        n += 1
+        return f"OF-2026-{n}"
+
+    # --- 9 OF réels (client + article vérifiés dans les fichiers transmis) ---
+    for i, (client, art_label, ligne, detail) in enumerate(_OF_REELS_BASE):
+        art = _ARTICLES_INDEX.get(art_label)
+        if art is None:
+            continue
+        four = _four_de_ligne(ligne)
+        of_list.append({
+            "n_of": _next_n_of(),
+            "client": client,
+            "article": art["article"],
+            "famille": art["famille"],
+            "decore": art["decore"],
+            "marque": art["marque"],
+            "ligne": ligne,
+            "four": four,
+            "site": FOURS[four]["site"],
+            "qte_planifiee": 8000 + (i * 733) % 6000,
+            "date": aujourdhui - _dt.timedelta(days=i % 5),
+            "source": "reel",
+            "source_detail": detail,
+        })
+
+    # --- OF supplémentaires (élargissement, source="genere"), en privilégiant
+    # Tit Mellil (U2/U3/U4) : ~2/3 des OF générés y sont affectés. ---
+    lignes_tit_mellil = [c for c, f in LIGNES if FOURS[f]["site"] == "Tit Mellil"]
+    lignes_roches_noires = [c for c, f in LIGNES if FOURS[f]["site"] == "Roches Noires"]
+    cycle_lignes = (lignes_tit_mellil * 2 + lignes_roches_noires)
+
+    deja_utilises = {(x["client"], x["article"]) for x in of_list}
+    articles_dispo = [a for a in ARTICLES if a["article"] not in {x["article"] for x in of_list}]
+
+    for i, art in enumerate(articles_dispo[:45]):
+        ligne = cycle_lignes[i % len(cycle_lignes)]
+        four = _four_de_ligne(ligne)
+        client = _CLIENTS_GENERIQUES[i % len(_CLIENTS_GENERIQUES)]
+        of_list.append({
+            "n_of": _next_n_of(),
+            "client": client,
+            "article": art["article"],
+            "famille": art["famille"],
+            "decore": art["decore"],
+            "marque": art["marque"],
+            "ligne": ligne,
+            "four": four,
+            "site": FOURS[four]["site"],
+            "qte_planifiee": 5000 + (i * 517) % 9000,
+            "date": aujourdhui - _dt.timedelta(days=i % 5),
+            "source": "genere",
+            "source_detail": "Élargissement de la base pour la démonstration (article réel, couple client/OF illustratif).",
+        })
+
+    return of_list
+
+
+OF_CONFIRMES = _build_of_confirmes()
