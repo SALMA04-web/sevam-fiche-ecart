@@ -7,8 +7,16 @@ rapport PFA, avec pilotage Pareto des causes en temps réel.
 
 Contenu :
 - app.py                                  → l'application
-- Dataset_Ecarts_Production_SEVAM.csv     → données de démonstration (163 OF)
+- Dataset_Ecarts_Production_SEVAM.csv     → données de démonstration (159 OF)
+- logo_sevam.png                          → logo officiel SEVAM (identité visuelle de l'appli)
 - requirements.txt                        → dépendances Python
+
+Structure des fours et lignes modélisée (v3) :
+- U1 : four de Roches Noires (le plus ancien)
+- U2, U3 : fours de Tit Mellil (anciens)
+- U4 : four de Tit Mellil (récent, en service depuis ~4 ans)
+- Chaque four compte 3 lignes nommées LxY (x = n° de ligne 1-3, Y = n° du four)
+  ex. U1 → L11/L21/L31, U4 → L14/L24/L34
 
 INSTALLATION ET LANCEMENT (sur ton ordinateur)
 -----------------------------------------------
