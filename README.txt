@@ -1,4 +1,4 @@
-PLATEFORME NUMÉRIQUE SEVAM — Suivi des écarts & Maintenance — v7
+PLATEFORME NUMÉRIQUE SEVAM — Suivi des écarts & Maintenance — v8
 ===================================================================
 
 Ce dossier contient un prototype Python (Streamlit) qui démontre une version
@@ -55,6 +55,37 @@ faisant pas partie de l'annuaire réel SEVAM (contrairement aux 10 autres
 postes, qui restent tous issus de la fiche de validation avant lancement
 transmise par l'entreprise) — la transparence sur l'origine des données reste
 intacte.
+
+NOUVEAUTÉS v8 — Centre d'alertes et journal d'activité (page d'accueil)
+------------------------------------------------------------------------
+Demande : que la plateforme "prévienne" d'elle-même l'utilisateur — dès qu'un
+OF est déclaré, qu'un écart significatif apparaît ou qu'une quantité perdue
+est calculée — plutôt que de le laisser découvrir l'information en rouvrant
+chaque onglet un par un.
+Un bandeau "🔔 Centre d'alertes" a été ajouté tout en haut de l'onglet
+Accueil, donc visible immédiatement à la connexion et à chaque retour sur cet
+onglet :
+1. Des alertes calculées EN DIRECT à partir du périmètre de l'utilisateur
+   connecté : nombre d'OF au-delà du seuil de vigilance (avec le cas le plus
+   marqué et l'impact économique cumulé en MAD), disponibilité du Four U2 si
+   elle descend sous le seuil de vigilance (97%), nombre d'organes classés
+   "Critique" dans la grille AMDEC, et nombre d'incidents simulés enregistrés
+   dans la session — chacune avec une explication en une phrase de ce qui se
+   passe et, si besoin, de l'onglet où creuser le sujet.
+2. Un "Journal d'activité récente" (dépliable) qui historise, dans l'ordre
+   chronologique inverse et avec un horodatage relatif ("à l'instant", "il y
+   a 12 min"...), chaque déclaration d'OF traitée et chaque incident simulé
+   enregistré au cours de la session — jusqu'à 20 événements conservés.
+Par ailleurs, le message de confirmation affiché juste après l'enregistrement
+d'une déclaration explique désormais clairement pourquoi le dossier est classé
+"À traiter" (écart au-delà du seuil affiché dans le panneau de gauche) ou au
+contraire pourquoi il ne nécessite aucune action (écart dans la tolérance).
+Remarque technique pour la suite du développement : comme l'onglet Accueil est
+codé avant les autres et s'exécute donc en premier à chaque rafraîchissement
+Streamlit, toute action qui doit se refléter immédiatement dans le Centre
+d'alertes (déclaration, incident simulé) déclenche un rerun explicite juste
+après avoir mis à jour les données de session — sans quoi l'alerte resterait
+affichée avec l'état précédent jusqu'à la prochaine interaction.
 
 NOUVEAUTÉS v4 — données réelles de l'entreprise
 ------------------------------------------------

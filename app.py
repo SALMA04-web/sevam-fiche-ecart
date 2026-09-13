@@ -153,6 +153,51 @@ if "sim_organe_nom" not in st.session_state:
 if "sim_ligne" not in st.session_state:
     st.session_state.sim_ligne = maint.LIGNES_U2[0]
 
+# Journal d'activité de la session — alimente le Centre d'alertes de l'onglet
+# Accueil : chaque déclaration à traiter et chaque incident simulé enregistré y
+# ajoute une notification, pour que l'utilisateur voie "ce qui se passe" dès
+# qu'il revient sur l'accueil, sans avoir à rouvrir chaque onglet.
+if "journal" not in st.session_state:
+    st.session_state.journal = []
+
+
+def log_event(message, level="info"):
+    """Ajoute une notification au journal d'activité (affiché sur l'onglet Accueil)."""
+    st.session_state.journal.insert(0, {
+        "ts": datetime.now(), "message": message, "level": level,
+    })
+    st.session_state.journal = st.session_state.journal[:20]
+
+
+NIVEAU_STYLE = {
+    "critical": ("🚨", SEVAM_RED, "#FDECEA"),
+    "warning": ("⚠️", AMBER, "#FBF3E0"),
+    "success": ("✅", SEVAM_GREEN_DARK, "#EAF5EC"),
+    "info": ("ℹ️", BLUE_ROLE, "#EEF2F9"),
+}
+
+
+def render_alert(level, text):
+    icon, border_color, bg = NIVEAU_STYLE.get(level, NIVEAU_STYLE["info"])
+    st.markdown(
+        f"<div style='padding:10px 14px;border-left:4px solid {border_color};background:{bg};"
+        f"border-radius:4px;margin-bottom:8px;font-size:13px;color:{GREY_TEXT};'>"
+        f"{icon} {text}</div>",
+        unsafe_allow_html=True,
+    )
+
+
+def temps_ecoule(ts):
+    delta = datetime.now() - ts
+    secondes = int(delta.total_seconds())
+    if secondes < 60:
+        return "à l'instant"
+    minutes = secondes // 60
+    if minutes < 60:
+        return f"il y a {minutes} min"
+    heures = minutes // 60
+    return f"il y a {heures} h"
+
 
 # =========================================================
 # PÉRIMÈTRE DE DONNÉES SELON LE RÔLE (simulation d'accès — pas d'authentification réelle)
@@ -524,6 +569,84 @@ with tab_map["🏠 Accueil"]:
         f"poste : **{auth['poste']}** — périmètre **{scope_label}**."
     )
 
+    # ---------------------------------------------------------------
+    # Centre d'alertes : ce que l'utilisateur doit savoir AVANT d'aller
+    # cliquer dans les onglets. Combine des alertes calculées en direct
+    # (écarts, disponibilité Four U2, criticité AMDEC) et le journal des
+    # événements de la session (déclarations traitées, incidents simulés).
+    # ---------------------------------------------------------------
+    _df_accueil = filtrer_par_perimetre(st.session_state.declarations, auth)
+
+    _alertes = []
+    if not _df_accueil.empty:
+        _nb_ecart = int((_df_accueil["Ecart_Pct"].abs() > seuil_alerte).sum())
+        if _nb_ecart > 0:
+            _pire = _df_accueil.loc[_df_accueil["Ecart_Pct"].abs().idxmax()]
+            _cout_total = _df_accueil.loc[_df_accueil["Ecart_Pct"].abs() > seuil_alerte, "Ecart_Unites"].abs().sum() * cout_unitaire
+            _cout_total_fmt = f"{_cout_total:,.0f}".replace(",", " ")
+            _alertes.append((
+                "warning" if _nb_ecart < 3 else "critical",
+                f"<b>{_nb_ecart} OF en écart</b> au-delà du seuil de vigilance ({seuil_alerte}%) dans votre "
+                f"périmètre — cas le plus marqué : OF <b>{_pire['N_OF']}</b> ({_pire['Ecart_Pct']:+.1f}%). "
+                f"Impact économique cumulé estimé à <b>{_cout_total_fmt} MAD</b>.",
+            ))
+        else:
+            _alertes.append(("success", "Aucun OF au-delà du seuil de vigilance dans votre périmètre : tous les écarts déclarés restent dans la tolérance fixée."))
+
+    if montrer_maintenance:
+        _fiab_accueil = maint.compute_fiabilite(
+            maint.PANNES, incidents_extra=st.session_state.incidents_simules or None
+        )
+        _dispo = _fiab_accueil["dispo"] * 100
+        if _dispo < 97:
+            _alertes.append((
+                "critical",
+                f"Disponibilité du Four U2 à <b>{_dispo:.1f}%</b>, en dessous du seuil de vigilance (97%) — "
+                "voir l'onglet « 🛠️ Maintenance Four U2 » pour le détail des causes (MTBF/MTTR).",
+            ))
+        elif _dispo < 99:
+            _alertes.append((
+                "warning",
+                f"Disponibilité du Four U2 : <b>{_dispo:.1f}%</b> — à surveiller, proche du seuil de vigilance (97%).",
+            ))
+        _nb_critiques = sum(1 for o in maint.AMDEC_ORGANES if o["C"] >= 25)
+        if _nb_critiques:
+            _alertes.append((
+                "warning",
+                f"<b>{_nb_critiques} organe(s)</b> classé(s) « Critique » dans l'analyse AMDEC du Four U2 "
+                "(criticité ≥ 25) — voir l'onglet « 🛠️ Maintenance Four U2 » &gt; AMDEC.",
+            ))
+        if st.session_state.incidents_simules:
+            _alertes.append((
+                "info",
+                f"<b>{len(st.session_state.incidents_simules)} incident(s) simulé(s)</b> enregistré(s) dans "
+                "cette session de démonstration — ils sont inclus dans les indicateurs de fiabilité ci-dessus.",
+            ))
+
+    st.write("")
+    with st.container():
+        st.markdown("**🔔 Centre d'alertes — à consulter avant de naviguer dans l'application**")
+        if _alertes:
+            for _niveau, _texte in _alertes:
+                render_alert(_niveau, _texte)
+        else:
+            render_alert("info", "Aucune alerte pour le moment : commencez par déclarer un OF dans l'onglet « 📝 Saisie d'une déclaration ».")
+
+        if st.session_state.journal:
+            with st.expander(f"🕘 Journal d'activité récente ({len(st.session_state.journal)} événement(s) cette session)"):
+                for _evt in st.session_state.journal[:8]:
+                    _icon, _bc, _bg = NIVEAU_STYLE.get(_evt["level"], NIVEAU_STYLE["info"])
+                    st.markdown(
+                        f"<div style='padding:6px 10px;border-left:3px solid {_bc};background:{_bg};"
+                        f"border-radius:3px;margin-bottom:5px;font-size:12px;color:{GREY_TEXT};'>"
+                        f"{_icon} {_evt['message']} "
+                        f"<span style='color:#8892A0;'>— {temps_ecoule(_evt['ts'])}</span></div>",
+                        unsafe_allow_html=True,
+                    )
+        else:
+            st.caption("Le journal d'activité se remplit au fil de vos actions (déclaration d'un OF, "
+                       "simulation d'un incident maintenance) et reste visible ici dès votre retour sur l'accueil.")
+
     st.write("")
     st.markdown(f"**Onglets disponibles pour votre poste ({role})**")
     autres_tabs = [t for t in tab_names if t != "🏠 Accueil"]
@@ -714,14 +837,37 @@ with tab_map["📝 Saisie d'une déclaration"]:
                 )
                 color = SEVAM_RED if statut == "A traiter" else SEVAM_GREEN
                 cout_est = abs(ecart_unites) * cout_unitaire
-                st.markdown(
+                if statut == "A traiter":
+                    explication = (
+                        f"L'écart dépasse le seuil de vigilance fixé à {seuil_alerte}% (panneau de "
+                        "gauche) : ce dossier mérite d'être examiné — cause principale, actions déjà "
+                        "engagées, impact sur le client."
+                    )
+                else:
+                    explication = f"L'écart reste dans la tolérance fixée ({seuil_alerte}%) : rien à signaler."
+                # On stocke le message de confirmation dans le session_state plutôt que de
+                # l'afficher tout de suite : l'onglet Accueil est codé AVANT cet onglet Saisie
+                # et s'exécute donc en premier à chaque run. Sans un rerun immédiat, son Centre
+                # d'alertes afficherait encore l'ancien état tant qu'aucune autre interaction
+                # n'aurait provoqué un nouveau run (même logique que le simulateur d'incident).
+                st.session_state.dernier_msg_declaration = (
                     f"<div style='padding:10px 14px;border-left:4px solid {color};background:{WHITE};'>"
                     f"<b>Déclaration enregistrée.</b> Écart calculé : <b>{ecart_unites:+d} unités "
                     f"({ecart_pct:+.1f}%)</b> — statut : <b style='color:{color}'>{statut}</b> "
                     f"(seuil actuel : {seuil_alerte}%). Impact économique estimé : <b>{cout_est:,.0f} MAD</b>."
-                    f"</div>",
-                    unsafe_allow_html=True,
+                    f"<br><span style='font-size:12px;color:{GREY_TEXT};'>{explication}</span>"
+                    f"</div>"
                 )
+                log_event(
+                    f"OF <b>{n_of}</b> déclaré sur {LIGNE_LABELS[ligne_choice]} — écart de "
+                    f"<b>{ecart_pct:+.1f}%</b> ({statut}), impact estimé {cout_est:,.0f} MAD.",
+                    level="warning" if statut == "A traiter" else "success",
+                )
+                st.rerun()
+
+        if st.session_state.get("dernier_msg_declaration"):
+            st.markdown(st.session_state.dernier_msg_declaration, unsafe_allow_html=True)
+            st.session_state.dernier_msg_declaration = None
 
         st.write("")
         df_perimetre = filtrer_par_perimetre(st.session_state.declarations, auth)
@@ -1331,6 +1477,14 @@ if "🛠️ Maintenance Four U2" in tab_map:
                             "intervenant": scenario[-1]["acteur"], "statut": "Résolu (simulation)",
                             "estimee": True, "qte_perdue": qte_perdue_est,
                         })
+                        _qte_perdue_fmt = f"{qte_perdue_est:,}".replace(",", " ")
+                        log_event(
+                            f"Incident simulé enregistré sur {LIGNE_LABELS.get(ligne_choisie, ligne_choisie)} — "
+                            f"<b>{organe['organe']}</b> ({organe['mode']}), durée {duree_h:.1f} h, "
+                            f"~{_qte_perdue_fmt} u perdues. Impact visible immédiatement "
+                            "sur la disponibilité du Four U2.",
+                            level="critical",
+                        )
                         # Rerun immédiatement : sans cela, l'onglet Fiabilité (déjà calculé plus haut
                         # dans ce même script run) afficherait encore l'ancien MTBF/MTTR tant qu'aucune
                         # autre interaction n'a provoqué de nouveau rerun.
