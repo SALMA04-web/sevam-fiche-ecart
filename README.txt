@@ -1,19 +1,48 @@
-PROTOTYPE — Fiche de déclaration d'écart numérique (SEVAM) — v5
-=================================================================
+PLATEFORME NUMÉRIQUE SEVAM — Suivi des écarts & Maintenance — v6
+===================================================================
 
 Ce dossier contient un prototype Python (Streamlit) qui démontre une version
 numérique de la fiche de déclaration d'écart proposée au chapitre 5 du
-rapport PFA, avec pilotage Pareto des causes en temps réel, catalogue produit
-réel, connexion nom + poste adossée à un vrai annuaire SEVAM (Tit Mellil), et
-une base d'OF confirmés à sélectionner (plus besoin de tout ressaisir).
+rapport PFA (pilotage Pareto des causes en temps réel, catalogue produit
+réel, connexion nom + poste adossée à un vrai annuaire SEVAM, base d'OF
+confirmés à sélectionner), ENRICHIE d'un module complet de suivi de la
+fiabilité et de la maintenance du Four U2 (chapitre 6.2.4/6.2.5).
 
 Contenu :
 - app.py                                  -> l'application
 - catalogue_sevam.py                      -> fours/lignes/départements/rôles + catalogue produit (246 réf.)
+- maintenance_sevam.py                    -> historique des pannes, MTBF/MTTR/AMDEC, calcul de besoin (Four U2)
 - build_dataset_v3.py                     -> script qui régénère le CSV de démonstration à partir du catalogue
 - Dataset_Ecarts_Production_SEVAM.csv     -> données de démonstration (218 OF, catalogue réel)
 - logo_sevam.png                          -> logo officiel SEVAM
 - requirements.txt                        -> dépendances Python
+
+NOUVEAUTÉS v6 — suite au retour du professeur encadrant
+----------------------------------------------------------
+Le professeur a indiqué qu'en ouvrant la plateforme, on ne comprenait pas
+immédiatement de quoi il s'agissait, et a demandé une interface plus claire,
+plus détaillée, et un fonctionnement plus réaliste ("temps réel") — par
+exemple : un problème survient sur un four, comment procède-t-on ?
+Trois changements y répondent :
+1. Écran d'accueil (avant ET après connexion) qui explique en clair le
+   périmètre de la plateforme (les deux livrables numérisés, comment s'en
+   servir), plutôt qu'un simple formulaire de connexion sans contexte.
+2. Un nouvel onglet "Maintenance Four U2", proposé aux postes dont le
+   périmètre couvre ce four (chefs de service/département concernés,
+   Direction), qui déploie tout ce qui a été construit pour le rapport :
+   historique des 14 pannes réelles, fiabilité (MTBF/MTTR/disponibilité)
+   RECALCULÉE EN DIRECT, analyse des causes (5M/5S/5 Pourquoi), grille de
+   criticité AMDEC des 9 organes du four, et un calculateur de besoin de
+   production (article Steine 100 VA).
+3. Un SIMULATEUR D'INCIDENT temps réel : on choisit un organe du four et une
+   ligne, puis on rejoue, étape par étape (bouton "Étape suivante"), la
+   procédure de traitement de l'incident — de la détection à la clôture —
+   avec un chronomètre et une barre de progression. Une fois le scénario
+   terminé, on peut enregistrer l'incident dans l'historique : le MTBF, le
+   MTTR et la disponibilité affichés dans l'onglet Fiabilité se recalculent
+   alors instantanément pour en tenir compte — ce qui rend concrètement
+   visible, en soutenance, l'intérêt d'un outil qui "travaille en temps réel"
+   plutôt qu'un historique reconstitué a posteriori.
 
 NOUVEAUTÉS v4 — données réelles de l'entreprise
 ------------------------------------------------
@@ -100,8 +129,8 @@ INSTALLATION ET LANCEMENT (sur ton ordinateur)
 
 POUR RE-DÉPLOYER SUR STREAMLIT CLOUD (sevam-pfa.streamlit.app)
 -----------------------------------------------------------------
-Remplace TOUS les fichiers de ce dossier (y compris le nouveau
-catalogue_sevam.py et build_dataset_v3.py) dans ton dépôt GitHub
+Remplace TOUS les fichiers de ce dossier (y compris les nouveaux
+maintenance_sevam.py et catalogue_sevam.py) dans ton dépôt GitHub
 "sevam-fiche-ecart" en utilisant "Add file -> Upload files", comme la
 dernière fois. Le redéploiement est automatique après le remplacement.
 
@@ -125,6 +154,16 @@ UTILISATION EN SOUTENANCE
   des données réelles (catalogue, annuaire, base d'OF confirmés), les
   limites assumées et les points à vérifier avec SEVAM (codification U1/U4,
   noms des chefs Four 1/3/4).
+- Onglet "Maintenance Four U2" (connecté en Karim AMMAR, ou Abderrahim
+  BELKHDIM pour rester dans le rôle du Four 2) : montrer l'historique des 14
+  pannes et le Pareto, puis la fiabilité (MTBF/MTTR/disponibilité), puis
+  enchaîner directement sur le sous-onglet "Simulateur d'incident" — choisir
+  "Brûleurs" (scénario réel du 29/07/2026) et cliquer "Étape suivante"
+  plusieurs fois pour montrer la procédure de A à Z ; une fois le scénario
+  terminé, cliquer "Enregistrer cet incident" puis revenir sur l'onglet
+  Fiabilité pour montrer que le MTBF/MTTR/disponibilité se sont recalculés
+  instantanément. C'est le moment le plus fort pour répondre à la demande du
+  professeur d'un outil "qui travaille en temps réel".
 
 Argument pour le jury : ce prototype ne se contente pas d'illustrer un
 concept — son catalogue produit, sa structure four/ligne, son annuaire des
