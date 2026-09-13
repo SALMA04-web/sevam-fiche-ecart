@@ -94,6 +94,11 @@ ANNUAIRE_REEL = [
     {"nom": "Adnane RAFIK", "poste": "Chef Service Supply Chain",
      "tier": "Chef de service", "scope_type": "site", "scope_value": "Tit Mellil",
      "source": "reel", "note": "Encadrant de stage — service Logistique, Tit Mellil."},
+    {"nom": "Pr. Bellahkim", "poste": "Encadrant pédagogique — École",
+     "tier": "Directeur Général (DG)", "scope_type": "all", "scope_value": None,
+     "source": "genere",
+     "note": "Encadrant pédagogique côté école — accès complet ajouté pour la soutenance "
+             "(ne fait pas partie de l'annuaire réel SEVAM, contrairement aux postes ci-dessus)."},
     {"nom": "Youssef HAFFOU", "poste": "Chef Département Supply Chain",
      "tier": "Chef de département", "scope_type": "site", "scope_value": "Tit Mellil",
      "source": "reel", "note": "Fiche de validation avant lancement — signataire."},

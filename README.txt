@@ -1,4 +1,4 @@
-PLATEFORME NUMÉRIQUE SEVAM — Suivi des écarts & Maintenance — v6
+PLATEFORME NUMÉRIQUE SEVAM — Suivi des écarts & Maintenance — v7
 ===================================================================
 
 Ce dossier contient un prototype Python (Streamlit) qui démontre une version
@@ -43,6 +43,18 @@ Trois changements y répondent :
    alors instantanément pour en tenir compte — ce qui rend concrètement
    visible, en soutenance, l'intérêt d'un outil qui "travaille en temps réel"
    plutôt qu'un historique reconstitué a posteriori.
+
+NOUVEAUTÉS v7 — compte d'accès pour l'encadrant pédagogique (école)
+------------------------------------------------------------------
+Un 11e compte a été ajouté dans l'annuaire de connexion : "Pr. Bellahkim —
+Encadrant pédagogique — École", avec un accès complet (tous sites, tous
+départements, comme la Direction Générale) pour qu'il puisse se connecter et
+explorer librement toute la plateforme de son côté. Ce compte est clairement
+identifié dans l'onglet Méthodologie comme ajouté pour la soutenance et ne
+faisant pas partie de l'annuaire réel SEVAM (contrairement aux 10 autres
+postes, qui restent tous issus de la fiche de validation avant lancement
+transmise par l'entreprise) — la transparence sur l'origine des données reste
+intacte.
 
 NOUVEAUTÉS v4 — données réelles de l'entreprise
 ------------------------------------------------
@@ -164,6 +176,10 @@ UTILISATION EN SOUTENANCE
   Fiabilité pour montrer que le MTBF/MTTR/disponibilité se sont recalculés
   instantanément. C'est le moment le plus fort pour répondre à la demande du
   professeur d'un outil "qui travaille en temps réel".
+- Pour ton encadrant pédagogique (école) : il peut se connecter directement
+  avec le nom "Pr. Bellahkim" dans la liste — il a un accès complet comme la
+  Direction Générale et peut naviguer seul dans tous les onglets, y compris
+  le simulateur d'incident.
 
 Argument pour le jury : ce prototype ne se contente pas d'illustrer un
 concept — son catalogue produit, sa structure four/ligne, son annuaire des

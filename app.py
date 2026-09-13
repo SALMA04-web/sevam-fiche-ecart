@@ -296,7 +296,8 @@ if st.session_state.auth is None:
         )
         st.caption(
             f"246 articles catalogués · 4 fours (U1 à U4) · 14 pannes historisées et 9 organes "
-            f"analysés (AMDEC) sur le Four U2 · {len(cat.ANNUAIRE_REEL)} postes réels dans l'annuaire."
+            f"analysés (AMDEC) sur le Four U2 · "
+            f"{sum(1 for p in cat.ANNUAIRE_REEL if p['source'] == 'reel')} postes réels dans l'annuaire."
         )
 
     with c_right:
@@ -1402,7 +1403,7 @@ with tab_map["📘 Méthodologie & note technique"]:
         "La page de connexion demande un **nom** et affiche automatiquement le **poste** associé, "
         "plutôt qu'un simple sélecteur de rôle : le périmètre de données (tier + scope) est déduit "
         "du poste, comme le ferait un annuaire d'entreprise réel (Active Directory / SSO).\n\n"
-        "Les 10 postes proposés dans l'annuaire proviennent tous de personnes et fonctions **réelles**, "
+        "10 des postes proposés dans l'annuaire proviennent de personnes et fonctions **réelles**, "
         "identifiées sur la **fiche de validation avant lancement** transmise par SEVAM "
         "(réf. FN-PR-121-05-V.00, client SACOFRINA SA, article APO 33 CL VA SACO, ligne L-23, site "
         "de Tit Mellil — Figure 3.4 du rapport) :\n\n"
@@ -1419,7 +1420,12 @@ with tab_map["📘 Méthodologie & note technique"]:
         "⚠️ Seul le Four 2 a un signataire réel confirmé sur la fiche disponible : les postes "
         "« Chef Département Production » des Fours 1, 3 et 4 sont donc proposés dans l'option "
         "« Autre » du formulaire de connexion, sans nom inventé, avec la mention explicite "
-        "« nom à confirmer »."
+        "« nom à confirmer ».\n\n"
+        "Un 11e compte, **Pr. Bellahkim — Encadrant pédagogique (École)**, a été ajouté avec un accès "
+        "complet (tous sites, tous départements) pour permettre à l'encadrant pédagogique d'explorer "
+        "librement la plateforme en soutenance. Il ne fait pas partie de l'annuaire réel SEVAM — "
+        "contrairement aux dix postes ci-dessus, dont chaque nom et poste est directement issu de la "
+        "fiche de validation transmise par l'entreprise."
     )
 
     st.markdown("**6. Périmètre de données par poste (scope)**")
