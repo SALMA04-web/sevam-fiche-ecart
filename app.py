@@ -32,6 +32,7 @@ Auteur : SALMA — PFA SEVAM 2026
 
 import base64
 import hashlib
+import io
 import os
 from datetime import date, datetime
 
@@ -1116,6 +1117,51 @@ if "💰 Impact économique" in tab_map:
                     "Seule la Direction Générale voit l'ensemble des départements sur un même écran — "
                     "les chefs de département ne voient que leur propre périmètre."
                 )
+
+            st.write("")
+            st.markdown("**Export**")
+            st.caption(
+                "Télécharger un bilan Excel prêt à distribuer (jury, contrôle de gestion) : indicateurs "
+                "clés, coût estimé par cause et détail des OF de votre périmètre."
+            )
+            _taux_service_export = (
+                df["Qte_Realisee"].sum() / df["Qte_Planifiee"].sum() * 100
+                if df["Qte_Planifiee"].sum() else 0
+            )
+            _n_of_ecart_export = int((df["Ecart_Pct"].abs() > seuil_alerte).sum())
+            _synthese_rows = [
+                ("Périmètre", scope_label),
+                ("Poste", role),
+                ("Date d'export", date.today().strftime("%d/%m/%Y")),
+                ("Taux de service", f"{_taux_service_export:.1f}%"),
+                ("OF suivis", int(df["N_OF"].nunique())),
+                (f"OF en écart (seuil {seuil_alerte}%)", _n_of_ecart_export),
+                ("Coût total estimé des écarts (MAD)", round(cout_total)),
+            ]
+            if not cout_par_cause.empty:
+                _synthese_rows.append(("Cause la plus coûteuse", cout_par_cause.index[0]))
+                _synthese_rows.append(("Coût de cette cause (MAD)", round(cout_par_cause.iloc[0])))
+            _synthese_df = pd.DataFrame(_synthese_rows, columns=["Indicateur", "Valeur"])
+
+            _excel_buffer = io.BytesIO()
+            with pd.ExcelWriter(_excel_buffer, engine="openpyxl") as _writer:
+                _synthese_df.to_excel(_writer, sheet_name="Synthèse", index=False)
+                if not cout_par_cause.empty:
+                    cout_par_cause.rename("Coût estimé (MAD)").round(0).to_excel(
+                        _writer, sheet_name="Coût par cause"
+                    )
+                df.sort_values("Date", ascending=False).to_excel(
+                    _writer, sheet_name="Détail des OF", index=False
+                )
+            _excel_buffer.seek(0)
+
+            st.download_button(
+                "📥 Exporter la synthèse (Excel)",
+                data=_excel_buffer,
+                file_name=f"Synthese_Impact_Economique_SEVAM_{date.today().isoformat()}.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True,
+            )
 
 # =========================================================
 # ONGLET — Maintenance Four U2 (historique des pannes, fiabilité, AMDEC,

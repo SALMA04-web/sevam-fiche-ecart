@@ -87,6 +87,14 @@ d'alertes (déclaration, incident simulé) déclenche un rerun explicite juste
 après avoir mis à jour les données de session — sans quoi l'alerte resterait
 affichée avec l'état précédent jusqu'à la prochaine interaction.
 
+Enfin, un bouton "📥 Exporter la synthèse (Excel)" a été ajouté en bas de
+l'onglet Impact économique : il génère, à la demande et sans rien écrire sur
+le serveur (fichier construit en mémoire), un classeur Excel à trois onglets
+(Synthèse des indicateurs clés, Coût estimé par cause, Détail des OF) sur le
+périmètre de l'utilisateur connecté — un support prêt à distribuer au jury ou
+au contrôle de gestion. Nécessite le paquet "openpyxl" (ajouté à
+requirements.txt).
+
 NOUVEAUTÉS v4 — données réelles de l'entreprise
 ------------------------------------------------
 Le catalogue produit et la codification four/ligne ont été reconstruits à
