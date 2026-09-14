@@ -1508,6 +1508,33 @@ if "🛠️ Maintenance Four U2" in tab_map:
 
             res = maint.calc_besoin(besoin_client, stock_actuel, stock_rz, ventes_realisees, palettes_dispo, capacite_palette)
             st.write("")
+
+            def _fmt(n):
+                return f"{n:,.0f}".replace(",", " ")
+
+            with st.expander("🔍 Détail du calcul, chiffre par chiffre (pour vérifier vous-même)"):
+                st.markdown(
+                    f"<div style='font-size:13px;line-height:2;color:{GREY_TEXT};'>"
+                    f"Besoin net à couvrir = {_fmt(besoin_client)} − {_fmt(stock_actuel)} − {_fmt(stock_rz)} "
+                    f"− {_fmt(ventes_realisees)} (ventes déjà réalisées) = <b>{_fmt(res['besoin_net'])} u</b><br>"
+                    f"Équivalent des palettes déjà disponibles = {_fmt(palettes_dispo)} × {_fmt(capacite_palette)} "
+                    f"= <b>{_fmt(res['equiv_palettes_dispo'])} u</b><br>"
+                    f"Reste à produire = {_fmt(res['besoin_net'])} − {_fmt(res['equiv_palettes_dispo'])} = "
+                    f"<b>{_fmt(res['besoin_net'] - res['equiv_palettes_dispo'])} u</b>"
+                    + (" (négatif → ramené à 0, il y a déjà plus de palettes que nécessaire)"
+                       if res["besoin_net"] - res["equiv_palettes_dispo"] < 0 else "") +
+                    f"<br>Palettes à produire = partie entière de {_fmt(res['reste_a_produire'])} ÷ "
+                    f"{_fmt(capacite_palette)} = <b>{res['palettes_a_produire']} palettes</b>"
+                    f"</div>",
+                    unsafe_allow_html=True,
+                )
+                st.caption(
+                    "⚠️ Si vous avez déjà déduit les ventes réalisées à la main pour obtenir le besoin client "
+                    "ou le stock ci-dessus, ne les remettez pas une seconde fois dans « Ventes réalisées » — "
+                    "sinon elles seraient soustraites deux fois. Ce champ n'est à remplir que si les ventes "
+                    "déjà réalisées ne sont PAS encore incluses dans les autres champs."
+                )
+
             r1, r2 = st.columns(2)
             r1.metric("Besoin net à couvrir", f"{res['besoin_net']:,.0f}".replace(",", " ") + " u")
             r2.metric("Reste à produire", f"{res['reste_a_produire']:,.0f}".replace(",", " ") + " u")

@@ -1,4 +1,4 @@
-PLATEFORME NUMÉRIQUE SEVAM — Suivi des écarts & Maintenance — v10
+PLATEFORME NUMÉRIQUE SEVAM — Suivi des écarts & Maintenance — v11
 ===================================================================
 
 Ce dossier contient un prototype Python (Streamlit) qui démontre une version
@@ -16,6 +16,31 @@ Contenu :
 - Dataset_Ecarts_Production_SEVAM.csv     -> données de démonstration (218 OF, catalogue réel)
 - logo_sevam.png                          -> logo officiel SEVAM
 - requirements.txt                        -> dépendances Python
+
+NOUVEAUTÉS v11 — détail du calcul de besoin, chiffre par chiffre
+------------------------------------------------------------------------------
+En re-testant le calculateur avec un second cas réel (article différent de
+Steine 100 VA), un écart est apparu entre le résultat de l'application et le
+calcul fait à la main sur papier (4 palettes attendues, contre 0 affiché).
+Vérification faite : la formule de l'application est la bonne — elle
+reproduit exactement, avec les chiffres réels de la fiche Steine 100 VA
+(chapitre 6.2.4), le résultat obtenu manuellement (26 palettes). L'écart sur
+le second cas venait du champ « Ventes réalisées » : le résultat intermédiaire
+« Besoin client − Stock actuel − Stock R+Z », déjà noté à la main sur le
+papier, avait été ressaisi une seconde fois dans ce champ — ce qui revenait
+à le soustraire deux fois (d'où 0 au lieu de 4 palettes). En remettant
+« Ventes réalisées » à 0 (puisque, pour ce cas, les ventes déjà réalisées
+étaient déjà comprises dans les autres champs et n'avaient pas à être
+déduites une seconde fois), l'application retrouve exactement les 4 palettes
+du calcul papier.
+Pour que ce genre de confusion ne se reproduise plus et pour que le calcul
+reste totalement transparent (utile aussi en soutenance), un nouveau bloc
+dépliable « 🔍 Détail du calcul, chiffre par chiffre » a été ajouté juste
+sous les champs de saisie : il affiche, avec les valeurs réellement saisies,
+chacune des trois étapes du calcul (besoin net, équivalent des palettes déjà
+disponibles, reste à produire, puis palettes à produire), accompagné d'un
+rappel : ne pas ressaisir dans « Ventes réalisées » un montant déjà pris en
+compte ailleurs, sous peine de le déduire deux fois.
 
 NOUVEAUTÉS v10 — clarification du calculateur de besoin (onglet Maintenance)
 ------------------------------------------------------------------------------
