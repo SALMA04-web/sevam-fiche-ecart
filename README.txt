@@ -1,4 +1,4 @@
-PLATEFORME NUMÉRIQUE SEVAM — Suivi des écarts & Maintenance — v12
+PLATEFORME NUMÉRIQUE SEVAM — Suivi des écarts & Maintenance — v13
 ===================================================================
 
 Ce dossier contient un prototype Python (Streamlit) qui démontre une version
@@ -16,6 +16,24 @@ Contenu :
 - Dataset_Ecarts_Production_SEVAM.csv     -> données de démonstration (218 OF, catalogue réel)
 - logo_sevam.png                          -> logo officiel SEVAM
 - requirements.txt                        -> dépendances Python
+
+NOUVEAUTÉS v13 — correctif d'un plantage au déploiement (AttributeError)
+------------------------------------------------------------------------------
+En déployant la v12 sur Streamlit Cloud, l'onglet "Pilotage QCD & Pareto"
+plantait avec une erreur "AttributeError: declarations_len_initial". Cause :
+sur Streamlit Cloud, un redéploiement peut réutiliser une session déjà
+ouverte AVANT la mise à jour du code — dans ce cas, "declarations" existait
+déjà dans la session, donc le bloc qui initialisait "declarations_len_initial"
+(utilisé par le bouton "Annuler ma dernière déclaration") ne s'exécutait
+jamais pour cette session. Corrigé en donnant à "declarations_len_initial" sa
+propre initialisation indépendante, plutôt que de la faire dépendre de
+l'initialisation de "declarations". Vérifié en reproduisant exactement ce
+scénario (session avec des déclarations déjà présentes mais sans cette clé)
+avant et après le correctif.
+Conseil pratique pour la suite : en cas d'erreur similaire après un futur
+déploiement sur Streamlit Cloud, un simple redémarrage de l'application
+("Reboot app" dans le menu de gestion) réinitialise toutes les sessions et
+suffit en général à repartir sur une base saine.
 
 NOUVEAUTÉS v12 — suite à une analyse complète de l'application (retours "jury")
 ------------------------------------------------------------------------------

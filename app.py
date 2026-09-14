@@ -145,9 +145,15 @@ def load_base_data():
 
 if "declarations" not in st.session_state:
     st.session_state.declarations = load_base_data().copy()
-    # Nombre de lignes de démarrage (données de base) : sert à savoir combien de
-    # déclarations ont été ajoutées PAR L'UTILISATEUR pendant cette session, pour
-    # ne jamais permettre d'annuler autre chose qu'une saisie qu'il vient de faire.
+
+# Nombre de lignes de démarrage (données de base) : sert à savoir combien de
+# déclarations ont été ajoutées PAR L'UTILISATEUR pendant cette session, pour
+# ne jamais permettre d'annuler autre chose qu'une saisie qu'il vient de faire.
+# Initialisé À PART (et pas seulement dans le bloc ci-dessus) : sur Streamlit
+# Cloud, un redéploiement peut réutiliser une session déjà ouverte avant la
+# mise à jour de l'application, où "declarations" existe déjà mais pas encore
+# cette clé — sans quoi le bouton "Annuler" plantait avec un AttributeError.
+if "declarations_len_initial" not in st.session_state:
     st.session_state.declarations_len_initial = len(st.session_state.declarations)
 
 # Incidents Four U2 enregistrés depuis le simulateur d'incident (module Maintenance) —
