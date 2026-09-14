@@ -1,4 +1,4 @@
-PLATEFORME NUMÉRIQUE SEVAM — Suivi des écarts & Maintenance — v11
+PLATEFORME NUMÉRIQUE SEVAM — Suivi des écarts & Maintenance — v12
 ===================================================================
 
 Ce dossier contient un prototype Python (Streamlit) qui démontre une version
@@ -16,6 +16,25 @@ Contenu :
 - Dataset_Ecarts_Production_SEVAM.csv     -> données de démonstration (218 OF, catalogue réel)
 - logo_sevam.png                          -> logo officiel SEVAM
 - requirements.txt                        -> dépendances Python
+
+NOUVEAUTÉS v12 — suite à une analyse complète de l'application (retours "jury")
+------------------------------------------------------------------------------
+Trois ajouts issus d'une relecture complète de la plateforme dans l'optique de
+la soutenance :
+1. Un panneau « 🎬 Scénario de démonstration suggéré (environ 5 minutes) » en
+   haut de l'onglet Accueil (replié par défaut) : un enchaînement rédigé en
+   phrases complètes, étape par étape (connexion, déclaration d'un OF, second
+   onglet pour montrer le temps réel, Pareto, impact économique, Maintenance
+   Four U2), pour dérouler la démonstration sans avoir à improviser l'ordre
+   devant le jury.
+2. Un champ de recherche « 🔍 Rechercher un N° OF » au-dessus du tableau des
+   dernières déclarations (onglet Saisie) : permet de retrouver instantanément
+   une déclaration précise plutôt que de parcourir la liste à l'œil.
+3. Un bouton « ↩️ Annuler ma dernière déclaration » : permet de corriger en un
+   clic une saisie faite par erreur pendant une démonstration. Il ne retire
+   jamais les données de démonstration de départ — uniquement la dernière
+   déclaration ajoutée par l'utilisateur pendant la session en cours — et reste
+   grisé tant qu'aucune déclaration n'a encore été ajoutée.
 
 NOUVEAUTÉS v11 — détail du calcul de besoin, chiffre par chiffre
 ------------------------------------------------------------------------------

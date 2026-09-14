@@ -145,6 +145,10 @@ def load_base_data():
 
 if "declarations" not in st.session_state:
     st.session_state.declarations = load_base_data().copy()
+    # Nombre de lignes de démarrage (données de base) : sert à savoir combien de
+    # déclarations ont été ajoutées PAR L'UTILISATEUR pendant cette session, pour
+    # ne jamais permettre d'annuler autre chose qu'une saisie qu'il vient de faire.
+    st.session_state.declarations_len_initial = len(st.session_state.declarations)
 
 # Incidents Four U2 enregistrés depuis le simulateur d'incident (module Maintenance) —
 # permettent de recalculer le MTBF/MTTR/disponibilité "en direct" en y intégrant les
@@ -617,6 +621,47 @@ with tab_map["🏠 Accueil"]:
     )
 
     # ---------------------------------------------------------------
+    # Scénario de démonstration guidé : un enchaînement prêt à suivre pour la
+    # soutenance, rédigé en phrases complètes pour ne rien avoir à improviser.
+    # ---------------------------------------------------------------
+    with st.expander("🎬 Scénario de démonstration suggéré (environ 5 minutes)"):
+        st.markdown(
+            "Cet enchaînement permet de montrer l'essentiel de la plateforme sans rien laisser "
+            "au hasard devant le jury. Chaque étape peut être adaptée selon le temps disponible."
+        )
+        st.markdown(
+            "**1. Présenter l'écran de connexion (30 secondes).** Expliquer que la connexion se "
+            "fait par nom et poste, adossée au vrai annuaire SEVAM, et que le périmètre de "
+            "données affiché ensuite dépend automatiquement du poste choisi — exactement comme "
+            "le ferait un accès réel en entreprise.\n\n"
+            "**2. Se connecter en tant qu'Adnane RAFIK et déclarer un OF (1 minute).** Aller dans "
+            "l'onglet « 📝 Saisie d'une déclaration », choisir un OF confirmé dans la liste, "
+            "modifier légèrement la quantité réalisée pour créer un écart visible, puis valider. "
+            "Montrer que l'écart, le statut et l'impact économique estimé apparaissent "
+            "immédiatement.\n\n"
+            "**3. Ouvrir un second onglet du navigateur et se connecter avec un autre nom, par "
+            "exemple Youssef HAFFOU (1 minute).** Revenir sur l'onglet Accueil : montrer le "
+            "bandeau « 🟢 2 personne(s) connectée(s) » qui affiche les deux postes en direct — "
+            "c'est le point qui démontre concrètement le fonctionnement en temps réel.\n\n"
+            "**4. Depuis ce second onglet, déclarer un nouvel OF, puis revenir sur le premier "
+            "onglet (1 minute).** Sans rien recharger manuellement, un message « toast » apparaît "
+            "en bas de l'écran avec le nom du déclarant et l'écart constaté, et le flux "
+            "d'activité de l'onglet Accueil se met à jour — la preuve que l'information circule "
+            "réellement entre les postes connectés.\n\n"
+            "**5. Ouvrir l'onglet « 📊 Pilotage QCD & Pareto » (1 minute).** Montrer l'analyse "
+            "Pareto des causes d'écart et la règle des 80 %, puis l'onglet « 💰 Impact économique » "
+            "pour traduire ces écarts en dirhams et simuler le gain d'un plan d'action.\n\n"
+            "**6. Terminer sur l'onglet « 🛠️ Maintenance Four U2 » (1 minute, si le temps le "
+            "permet).** Montrer rapidement le calcul de fiabilité (MTBF/MTTR), la grille de "
+            "criticité AMDEC, et éventuellement lancer une étape du simulateur d'incident pour "
+            "illustrer la procédure de traitement d'une panne de A à Z."
+        )
+        st.caption(
+            "Astuce : garder ce panneau replié pendant la présentation et ne l'ouvrir qu'en "
+            "préparation, juste avant de passer devant le jury."
+        )
+
+    # ---------------------------------------------------------------
     # Centre d'alertes : ce que l'utilisateur doit savoir AVANT d'aller
     # cliquer dans les onglets. Combine des alertes calculées en direct
     # (écarts, disponibilité Four U2, criticité AMDEC) et le journal des
@@ -967,9 +1012,38 @@ with tab_map["📝 Saisie d'une déclaration"]:
 
         st.write("")
         df_perimetre = filtrer_par_perimetre(st.session_state.declarations, auth)
-        st.caption(f"{len(df_perimetre)} déclarations visibles dans votre périmètre ({role} — {scope_label}).")
+
+        rech_c, undo_c = st.columns([3, 1.3])
+        with rech_c:
+            recherche_of = st.text_input(
+                "🔍 Rechercher un N° OF",
+                placeholder="ex. OF-2026-0458",
+                help="Filtre le tableau ci-dessous sur les déclarations dont le N° OF contient ce texte.",
+            )
+        with undo_c:
+            _nb_ajoutees = len(st.session_state.declarations) - st.session_state.declarations_len_initial
+            st.write("")
+            if st.button(
+                "↩️ Annuler ma dernière déclaration",
+                disabled=_nb_ajoutees == 0,
+                help="Retire uniquement la dernière déclaration que VOUS venez d'ajouter pendant "
+                     "cette session — jamais les données de démonstration de départ.",
+                use_container_width=True,
+            ):
+                st.session_state.declarations = st.session_state.declarations.iloc[:-1].reset_index(drop=True)
+                st.rerun()
+
+        df_affiche = df_perimetre
+        if recherche_of:
+            df_affiche = df_affiche[df_affiche["N_OF"].astype(str).str.contains(recherche_of, case=False, na=False)]
+
+        st.caption(
+            f"{len(df_affiche)} déclaration(s) affichée(s) sur {len(df_perimetre)} visibles dans votre "
+            f"périmètre ({role} — {scope_label})."
+            + (f" Filtré sur « {recherche_of} »." if recherche_of else "")
+        )
         st.dataframe(
-            df_perimetre.sort_values("Date", ascending=False).head(15),
+            df_affiche.sort_values("Date", ascending=False).head(15),
             use_container_width=True, hide_index=True,
         )
 
