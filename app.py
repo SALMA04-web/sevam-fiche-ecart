@@ -1511,6 +1511,21 @@ if "🛠️ Maintenance Four U2" in tab_map:
             r1, r2 = st.columns(2)
             r1.metric("Besoin net à couvrir", f"{res['besoin_net']:,.0f}".replace(",", " ") + " u")
             r2.metric("Reste à produire", f"{res['reste_a_produire']:,.0f}".replace(",", " ") + " u")
+
+            if res["besoin_net"] <= 0:
+                # Le calcul recalcule bel et bien à chaque changement de champ (ce n'est jamais
+                # l'exemple Steine figé) : un résultat à 0 est un cas normal du calculateur, quand
+                # le stock déjà disponible couvre entièrement le besoin client — pas un blocage.
+                st.markdown(
+                    f"<div style='padding:14px 18px;background:#E9F7EF;border:1px solid #A9DFBF;"
+                    f"border-radius:6px;margin-top:8px;font-size:13.5px;color:#1E6B3C;'>"
+                    f"✅ <b>Stock déjà suffisant</b> — avec ces valeurs, le stock actuel, le stock R+Z "
+                    f"et les ventes déjà réalisées couvrent entièrement le besoin client à eux seuls "
+                    f"(besoin net ≤ 0) : aucune production supplémentaire n'est nécessaire, d'où "
+                    f"<b>0 palette</b> ci-dessous.</div>",
+                    unsafe_allow_html=True,
+                )
+
             st.markdown(
                 f"<div style='padding:18px;background:{SEVAM_GREEN_DARK};border-radius:6px;text-align:center;margin-top:8px;'>"
                 f"<span style='color:white;font-size:14px;'>PALETTES À PRODUIRE</span><br>"
@@ -1521,7 +1536,9 @@ if "🛠️ Maintenance Four U2" in tab_map:
             st.caption(
                 "Besoin net à couvrir = Besoin client − Stock actuel − Stock R+Z − Ventes réalisées. "
                 "Reste à produire = Besoin net − (Palettes disponibles × Capacité palette). "
-                "Palettes à produire = partie entière de Reste à produire ÷ Capacité palette."
+                "Palettes à produire = partie entière de Reste à produire ÷ Capacité palette. "
+                "Le calcul se met à jour instantanément dès qu'un champ ci-dessus change — l'exemple "
+                "Steine 100 VA n'est que la valeur de départ, pas un résultat figé."
             )
 
         # -------------------------------------------------------------

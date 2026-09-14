@@ -1,4 +1,4 @@
-PLATEFORME NUMÉRIQUE SEVAM — Suivi des écarts & Maintenance — v9
+PLATEFORME NUMÉRIQUE SEVAM — Suivi des écarts & Maintenance — v10
 ===================================================================
 
 Ce dossier contient un prototype Python (Streamlit) qui démontre une version
@@ -16,6 +16,20 @@ Contenu :
 - Dataset_Ecarts_Production_SEVAM.csv     -> données de démonstration (218 OF, catalogue réel)
 - logo_sevam.png                          -> logo officiel SEVAM
 - requirements.txt                        -> dépendances Python
+
+NOUVEAUTÉS v10 — clarification du calculateur de besoin (onglet Maintenance)
+------------------------------------------------------------------------------
+Le calculateur "🧮 Calcul de besoin" recalculait déjà instantanément à chaque
+changement de champ (aucun bouton "valider" n'est nécessaire) — mais avec
+certaines combinaisons de chiffres de test, "Besoin net à couvrir" et "Reste
+à produire" tombent exactement à 0, ce qui pouvait donner l'impression, à
+tort, que l'outil était resté bloqué sur l'exemple Steine 100 VA de départ.
+En réalité, un résultat à 0 est un cas normal de la formule : cela veut dire
+que le stock actuel + le stock R+Z + les ventes déjà réalisées couvrent, à
+eux seuls, le besoin client saisi — donc, logiquement, aucune palette
+supplémentaire à produire. Un message explicatif "✅ Stock déjà suffisant"
+apparaît désormais automatiquement dans ce cas précis, pour que ce résultat
+se lise comme une conclusion du calcul et non comme un blocage de l'outil.
 
 NOUVEAUTÉS v9 — passage en temps réel PARTAGÉ entre tous les postes connectés
 ------------------------------------------------------------------------------
