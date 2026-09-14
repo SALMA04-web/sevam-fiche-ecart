@@ -34,12 +34,16 @@ import base64
 import hashlib
 import io
 import os
+import re
+import uuid
 from datetime import date, datetime
+from threading import Lock
 
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
+from streamlit_autorefresh import st_autorefresh
 
 import catalogue_sevam as cat
 import maintenance_sevam as maint
@@ -154,20 +158,44 @@ if "sim_organe_nom" not in st.session_state:
 if "sim_ligne" not in st.session_state:
     st.session_state.sim_ligne = maint.LIGNES_U2[0]
 
-# Journal d'activité de la session — alimente le Centre d'alertes de l'onglet
-# Accueil : chaque déclaration à traiter et chaque incident simulé enregistré y
-# ajoute une notification, pour que l'utilisateur voie "ce qui se passe" dès
-# qu'il revient sur l'accueil, sans avoir à rouvrir chaque onglet.
-if "journal" not in st.session_state:
-    st.session_state.journal = []
+# =========================================================
+# ÉTAT PARTAGÉ ENTRE TOUTES LES SESSIONS (flux d'activité temps réel)
+# =========================================================
+# st.session_state est propre à CHAQUE navigateur/onglet connecté : deux
+# utilisateurs ne peuvent pas s'y voir l'un l'autre. st.cache_resource, lui,
+# renvoie le MÊME objet Python à toutes les sessions tant que le processus
+# Streamlit tourne — c'est le mécanisme officiellement recommandé pour de
+# l'état partagé (voir doc Streamlit "Mutate a cached object"). On l'utilise
+# ici pour que la déclaration d'un OF par une personne soit visible, en
+# quelques secondes, par toutes les autres personnes connectées — sans base
+# de données externe.
+@st.cache_resource
+def _shared_store():
+    return {"feed": [], "next_id": 1, "presence": {}, "lock": Lock()}
 
 
-def log_event(message, level="info"):
-    """Ajoute une notification au journal d'activité (affiché sur l'onglet Accueil)."""
-    st.session_state.journal.insert(0, {
-        "ts": datetime.now(), "message": message, "level": level,
-    })
-    st.session_state.journal = st.session_state.journal[:20]
+SHARED = _shared_store()
+
+# Identifiant stable pour CETTE session (un onglet/navigateur = un sid), pour
+# savoir qui est "en ligne" et ne pas notifier une personne de ses propres
+# actions.
+if "sid" not in st.session_state:
+    st.session_state.sid = uuid.uuid4().hex[:12]
+
+
+def log_event(message, level="info", auteur=None):
+    """Publie un événement dans le flux d'activité PARTAGÉ, visible par tous les
+    postes connectés (Centre d'alertes de l'onglet Accueil), en quasi temps réel
+    grâce à l'auto-rafraîchissement de la page."""
+    with SHARED["lock"]:
+        evt_id = SHARED["next_id"]
+        SHARED["next_id"] += 1
+        SHARED["feed"].insert(0, {
+            "id": evt_id, "ts": datetime.now(), "message": message,
+            "level": level, "auteur": auteur,
+        })
+        del SHARED["feed"][50:]
+    return evt_id
 
 
 NIVEAU_STYLE = {
@@ -412,6 +440,24 @@ if st.session_state.auth is None:
 auth = st.session_state.auth
 role = auth["tier"]
 
+# =========================================================
+# TEMPS RÉEL — présence en ligne + auto-rafraîchissement
+# =========================================================
+# 1) Cette session "pointe" dans le registre partagé (on saura qui est
+#    actuellement connecté), et on purge les postes inactifs depuis plus de
+#    20 secondes (2 à 4 cycles d'auto-rafraîchissement manqués).
+with SHARED["lock"]:
+    SHARED["presence"][st.session_state.sid] = {"nom": auth["nom"], "poste": auth["poste"], "ts": datetime.now()}
+    _cutoff = datetime.now()
+    SHARED["presence"] = {
+        sid: p for sid, p in SHARED["presence"].items() if (_cutoff - p["ts"]).total_seconds() < 20
+    }
+
+# 2) La page entière se relance automatiquement toutes les 5 secondes : c'est
+#    ce qui permet à un poste resté ouvert, sans aucun clic, de voir apparaître
+#    les déclarations faites entre-temps par d'autres postes connectés.
+st_autorefresh(interval=5000, key="live_autorefresh")
+
 with st.sidebar:
     if LOGO_B64:
         st.markdown(
@@ -624,6 +670,50 @@ with tab_map["🏠 Accueil"]:
                 "cette session de démonstration — ils sont inclus dans les indicateurs de fiabilité ci-dessus.",
             ))
 
+    # ---------------------------------------------------------------
+    # Présence en direct : qui d'autre est connecté à l'instant, tous
+    # postes confondus (calculé plus haut, mis à jour à chaque battement
+    # de l'auto-rafraîchissement de 5 secondes).
+    # ---------------------------------------------------------------
+    with SHARED["lock"]:
+        _noms_presence = sorted(
+            (
+                f"{p['nom']} ({p['poste']})" + (" — vous" if _sid == st.session_state.sid else "")
+                for _sid, p in SHARED["presence"].items()
+            ),
+            key=lambda s: (" — vous" not in s, s),
+        )
+    st.markdown(
+        f"<div style='display:inline-block;padding:5px 12px;background:#E9F7EF;"
+        f"border:1px solid #A9DFBF;border-radius:14px;font-size:12.5px;color:#1E6B3C;margin-bottom:8px;'>"
+        f"🟢 <b>{len(_noms_presence)} personne(s) connectée(s)</b> en ce moment — {', '.join(_noms_presence)}"
+        f"</div>",
+        unsafe_allow_html=True,
+    )
+
+    # ---------------------------------------------------------------
+    # Notifications temps réel : dès qu'un AUTRE poste publie un nouvel
+    # événement dans le flux partagé (déclaration d'un OF, incident simulé),
+    # un toast apparaît ici dans les ~5 secondes qui suivent — sans recharger
+    # la page manuellement — grâce à st_autorefresh.
+    # ---------------------------------------------------------------
+    if "last_seen_feed_id" not in st.session_state:
+        with SHARED["lock"]:
+            st.session_state.last_seen_feed_id = SHARED["feed"][0]["id"] if SHARED["feed"] else 0
+
+    with SHARED["lock"]:
+        _feed = list(SHARED["feed"])
+    _nouveaux = [
+        e for e in _feed
+        if e["id"] > st.session_state.last_seen_feed_id and e["auteur"] != auth["nom"]
+    ]
+    for _evt in reversed(_nouveaux[:3]):
+        _txt_toast = re.sub("<[^>]+>", "", _evt["message"])
+        _icone_toast = {"critical": "🔴", "warning": "🟠", "success": "🟢"}.get(_evt["level"], "🔔")
+        st.toast(_txt_toast, icon=_icone_toast)
+    if _feed:
+        st.session_state.last_seen_feed_id = _feed[0]["id"]
+
     st.write("")
     with st.container():
         st.markdown("**🔔 Centre d'alertes — à consulter avant de naviguer dans l'application**")
@@ -633,20 +723,24 @@ with tab_map["🏠 Accueil"]:
         else:
             render_alert("info", "Aucune alerte pour le moment : commencez par déclarer un OF dans l'onglet « 📝 Saisie d'une déclaration ».")
 
-        if st.session_state.journal:
-            with st.expander(f"🕘 Journal d'activité récente ({len(st.session_state.journal)} événement(s) cette session)"):
-                for _evt in st.session_state.journal[:8]:
+        if _feed:
+            with st.expander(
+                f"🕘 Flux d'activité en temps réel — tous postes connectés ({len(_feed)} événement(s))",
+                expanded=bool(_nouveaux),
+            ):
+                for _evt in _feed[:8]:
                     _icon, _bc, _bg = NIVEAU_STYLE.get(_evt["level"], NIVEAU_STYLE["info"])
+                    _tag_vous = " <b>(vous)</b>" if _evt["auteur"] == auth["nom"] else ""
                     st.markdown(
                         f"<div style='padding:6px 10px;border-left:3px solid {_bc};background:{_bg};"
                         f"border-radius:3px;margin-bottom:5px;font-size:12px;color:{GREY_TEXT};'>"
-                        f"{_icon} {_evt['message']} "
+                        f"{_icon} {_evt['message']}{_tag_vous} "
                         f"<span style='color:#8892A0;'>— {temps_ecoule(_evt['ts'])}</span></div>",
                         unsafe_allow_html=True,
                     )
         else:
-            st.caption("Le journal d'activité se remplit au fil de vos actions (déclaration d'un OF, "
-                       "simulation d'un incident maintenance) et reste visible ici dès votre retour sur l'accueil.")
+            st.caption("Le flux d'activité se remplit au fil des actions de TOUS les postes connectés (déclaration "
+                       "d'un OF, simulation d'un incident maintenance) et est visible en temps réel par tout le monde ici.")
 
     st.write("")
     st.markdown(f"**Onglets disponibles pour votre poste ({role})**")
@@ -860,9 +954,10 @@ with tab_map["📝 Saisie d'une déclaration"]:
                     f"</div>"
                 )
                 log_event(
-                    f"OF <b>{n_of}</b> déclaré sur {LIGNE_LABELS[ligne_choice]} — écart de "
-                    f"<b>{ecart_pct:+.1f}%</b> ({statut}), impact estimé {cout_est:,.0f} MAD.",
+                    f"<b>{auth['nom']}</b> a déclaré l'OF <b>{n_of}</b> sur {LIGNE_LABELS[ligne_choice]} — "
+                    f"écart de <b>{ecart_pct:+.1f}%</b> ({statut}), impact estimé {cout_est:,.0f} MAD.",
                     level="warning" if statut == "A traiter" else "success",
+                    auteur=auth["nom"],
                 )
                 st.rerun()
 
@@ -1525,11 +1620,13 @@ if "🛠️ Maintenance Four U2" in tab_map:
                         })
                         _qte_perdue_fmt = f"{qte_perdue_est:,}".replace(",", " ")
                         log_event(
-                            f"Incident simulé enregistré sur {LIGNE_LABELS.get(ligne_choisie, ligne_choisie)} — "
+                            f"<b>{auth['nom']}</b> a enregistré un incident simulé sur "
+                            f"{LIGNE_LABELS.get(ligne_choisie, ligne_choisie)} — "
                             f"<b>{organe['organe']}</b> ({organe['mode']}), durée {duree_h:.1f} h, "
                             f"~{_qte_perdue_fmt} u perdues. Impact visible immédiatement "
                             "sur la disponibilité du Four U2.",
                             level="critical",
+                            auteur=auth["nom"],
                         )
                         # Rerun immédiatement : sans cela, l'onglet Fiabilité (déjà calculé plus haut
                         # dans ce même script run) afficherait encore l'ancien MTBF/MTTR tant qu'aucune

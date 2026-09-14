@@ -1,4 +1,4 @@
-PLATEFORME NUMÉRIQUE SEVAM — Suivi des écarts & Maintenance — v8
+PLATEFORME NUMÉRIQUE SEVAM — Suivi des écarts & Maintenance — v9
 ===================================================================
 
 Ce dossier contient un prototype Python (Streamlit) qui démontre une version
@@ -16,6 +16,50 @@ Contenu :
 - Dataset_Ecarts_Production_SEVAM.csv     -> données de démonstration (218 OF, catalogue réel)
 - logo_sevam.png                          -> logo officiel SEVAM
 - requirements.txt                        -> dépendances Python
+
+NOUVEAUTÉS v9 — passage en temps réel PARTAGÉ entre tous les postes connectés
+------------------------------------------------------------------------------
+Constat corrigé : jusqu'à la v8, le "Centre d'alertes" et le journal
+d'activité étaient recalculés en temps réel, mais uniquement pour la
+session/l'onglet de navigateur en cours — si un autre poste déclarait un OF
+au même moment, rien ne le signalait ailleurs tant que cette personne n'avait
+pas rouvert elle-même l'onglet Accueil. Ce n'était donc pas encore un vrai
+temps réel PARTAGÉ entre utilisateurs.
+Trois changements y répondent, sans base de données externe ni serveur
+supplémentaire :
+1. La page se rafraîchit désormais automatiquement TOUTE SEULE toutes les
+   5 secondes (paquet "streamlit-autorefresh", ajouté à requirements.txt) :
+   un poste resté ouvert, sans qu'on touche à rien, voit apparaître ce que
+   les autres postes viennent de faire.
+2. Le flux d'activité (déclarations d'OF, incidents simulés) n'est plus
+   propre à chaque session : il est désormais PARTAGÉ entre tous les postes
+   connectés au même moment à l'application. Concrètement, dès qu'une
+   personne déclare un OF ou enregistre un incident simulé, TOUT LE MONDE de
+   connecté voit apparaître, dans les secondes qui suivent :
+     - une notification "toast" (petite bulle en bas de l'écran, qui se
+       ferme toute seule) précisant qui a fait l'action et quel est
+       l'écart/le problème — par exemple : "Youssef HAFFOU a déclaré l'OF
+       OF-2026-1001 sur L23 — Four U3 — écart de -8.0% (A traiter)...". Une
+       personne n'est jamais notifiée de ses propres actions.
+     - la mise à jour du flux d'activité affiché dans l'onglet Accueil, avec
+       la mention "(vous)" sur les événements que l'utilisateur connecté a
+       lui-même déclenchés.
+3. (Bonus) Un bandeau "🟢 X personne(s) connectée(s) en ce moment" affiche, en
+   direct, qui d'autre utilise la plateforme au même moment (nom + poste),
+   avec "— vous" sur sa propre ligne — utile en soutenance pour montrer que
+   plusieurs postes peuvent travailler simultanément sur le même outil,
+   exactement comme le ferait un vrai système de production partagé.
+Remarque technique : ce partage utilise le mécanisme officiel de Streamlit
+pour l'état partagé entre sessions (`st.cache_resource`, protégé par un
+verrou pour rester sûr même si plusieurs personnes agissent au même moment).
+L'information est donc bien partagée entre tous les navigateurs connectés
+tant que le serveur applicatif tourne — c'est un vrai progrès par rapport à
+la v8, purement locale à chaque session. Cela reste néanmoins un état gardé
+en mémoire du processus (pas une base de données) : il est partagé "en
+direct" pendant toute la durée où l'application tourne, mais repart à zéro
+si le serveur est redémarré/redéployé — cohérent avec le positionnement d'un
+prototype de démonstration légère annoncé dans le rapport, à mentionner si le
+jury pose une question sur les limites assumées de l'outil.
 
 NOUVEAUTÉS v6 — suite au retour du professeur encadrant
 ----------------------------------------------------------
