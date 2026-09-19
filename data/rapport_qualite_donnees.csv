@@ -1,0 +1,9 @@
+fichier,feuille,champ,ligne_excel_index,valeur_originale,valeur_corrigee,motif
+Arret_2024.xlsx,11,Date,126,3034-03-02,2024-03-02,"année de saisie aberrante (3034 au lieu de 2024), corrigée en conservant le jour et le mois"
+Arret_2024.xlsx,11,Temps d'arrêt (min),869,(vide),NaN,"durée manquante dans le fichier source, événement conservé mais exclu des totaux"
+Arret_2024.xlsx,11,Temps d'arrêt (min),870,(vide),NaN,"durée manquante dans le fichier source, événement conservé mais exclu des totaux"
+Arret_2024.xlsx,13,Date,84,2023-03-03,2024-03-03,"année de saisie aberrante (2023 au lieu de 2024), corrigée en conservant le jour et le mois"
+Arret_2024.xlsx,13,Date,85,2023-03-03,2024-03-03,"année de saisie aberrante (2023 au lieu de 2024), corrigée en conservant le jour et le mois"
+Arret_2024.xlsx,13,Temps d'arrêt (min),813,1O,10.0,caractère non numérique corrigé (ex. lettre 'O' pour le chiffre '0')
+Arret_2024.xlsx,21,Date,294,2025-12-01,2024-12-01,"année de saisie aberrante (2025 au lieu de 2024), corrigée en conservant le jour et le mois"
+Arret_2024.xlsx,22,Temps d'arrêt (min),313,1900-05-04 00:00:00,125,cellule interprétée comme une date par Excel : valeur reconvertie en nombre de minutes (jours depuis l'époque Excel 1899-12-30)
